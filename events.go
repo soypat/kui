@@ -1,21 +1,39 @@
 package kui
 
+//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align -output=stringers.go
+
 import (
 	"github.com/soypat/kui/internal"
 )
 
-//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align -output=stringers.go
+// EventReader is the consumer end of an event queue. A Reader has a single consumer.
+// Usually a UI context will have a single EventReader instance that handles events from one or many producers.
+type EventReader interface {
+	// DrainEvents moves up to len(dst) of the oldest events into dst and returns how many it moved.
+	// Drained times never decrease so it is the EventReader's responsability to order events written by [Event.Time].
+	// The text of drained events stays valid until the next Drain.
+	DrainEvents(dst []Event) int
+	// EventTextAppend appends the text of e, an event returned by the last Drain, to dst. Valid when [Event.Len]>0.
+	EventTextAppend(dst []byte, e *Event) []byte
+}
 
-// Event is a single input event. It contains no pointers.
+// EventWriter is the producer end of an event queue. A Writer has a single producer.
+type EventWriter interface {
+	// WriteEvents queues the longest prefix of src that fits and returns its length.
+	WriteEvents(src []Event) int
+}
+
+// Event is a single input event. It contains no pointers. Field meaning depends on Kind, see [EventKind].
 type Event struct {
-	Time         int64
-	X, Y, DX, DY float32
-	Code         uint32
-	Len          uint16
-	Source       uint8
-	Button       PointerButton
-	Kind         EventKind
-	Mods         KeyMods
+	Time         int64         // Monotonic time of event in nanoseconds, arbitrary epoch.
+	Node         Handle        // Target node. Zero until the router resolves it.
+	X, Y, DX, DY float32       // Geometry in logical pixels, e.g. pointer position (X,Y), scroll amount (DX,DY).
+	Code         uint32        // [Key] for key events, rune for single-rune text. Opaque text offset when Len>0.
+	Len          uint16        // Byte length of multi-rune text/preedit (e.g. paste, IME). Zero otherwise.
+	Kind         EventKind     // Kind provides interpretation for [Event] fields. See list of possible [EventKind] i.e: [EventPointerDown]
+	Source       uint8         // Pointer ID: 0 is the mouse, touch points use 1 and up i.e: User dragging five fingers across screen has 5 distinct Source values 1..5.
+	Button       PointerButton // Button pressed or released on pointer down/up events.
+	KeyMods      KeyMods       // Modifier state (shift, ctrl, caps lock...) when the event was created.
 }
 
 // Key returns the key of a [KindKeyUp] or [KindKeyDown].
@@ -29,6 +47,7 @@ func (e *Event) IsString() bool {
 	return e.Len > 0 && (e.Kind == EventText || e.Kind == EventPreedit)
 }
 
+// Resize returns the width, height and scale values a EventResize was created with. See [EventBuilder.Resize].
 func (e *Event) Resize() (w, h, scale float32) {
 	if e.Kind != EventResize {
 		panic("expected resize")
@@ -39,7 +58,7 @@ func (e *Event) Resize() (w, h, scale float32) {
 // Coalesce checks if an incoming new event can be merged into a preexisting event e.
 // It returns true if the event was succesfully merged into e, in which case incoming may be discarded and replaced by e.
 func (e *Event) Coalesce(incoming Event) (coalesced bool) {
-	if e.Kind == incoming.Kind && e.Source == incoming.Source && e.Mods == incoming.Mods {
+	if e.Kind == incoming.Kind && e.Source == incoming.Source && e.KeyMods == incoming.KeyMods {
 		switch e.Kind {
 		case EventPointerMove:
 			e.Time, e.X, e.Y = incoming.Time, incoming.X, incoming.Y
@@ -63,10 +82,17 @@ type EventBuilder struct {
 	keyMods KeyMods
 }
 
+// EventBuilderConfig configures EventBuilder. EventBuilder zero value is valid so this is optional configuration.
+type EventBuilderConfig struct {
+	Source   uint8        // Sets [Event.Source].
+	Nanotime func() int64 // monotonic time source.
+}
+
 // Configure is called to customize EventBuilder output. Zeros the [KeyMods] state.
-func (events *EventBuilder) Configure(source uint8, nanotime func() int64) {
-	events.mono.Config(nanotime)
-	events.source = source
+// Non-zero sources typically refers to touch points for Pointer events but can serve as device identifier as well.
+func (events *EventBuilder) Configure(cfg EventBuilderConfig) {
+	events.mono.Config(cfg.Nanotime)
+	events.source = cfg.Source
 	events.keyMods = 0
 }
 
@@ -78,7 +104,7 @@ func (events *EventBuilder) SetKeyMods(mods KeyMods) { events.keyMods = mods }
 
 // NewEvent creates a [EventKind] of [Event] from the EventBuilder source setting the time, source and [KeyMods] of the event.
 func (events *EventBuilder) NewEvent(kind EventKind) Event {
-	return Event{Time: events.mono.Nanotime(), Source: events.source, Kind: kind, Mods: events.keyMods}
+	return Event{Time: events.mono.Nanotime(), Source: events.source, Kind: kind, KeyMods: events.keyMods}
 }
 
 // PointerUp returns a [EventPointerUp] event.
