@@ -1,3 +1,13 @@
+/*
+Package kui holds low-level types common to all UI implementations including:
+  - geometry
+  - node handles
+  - font interfaces
+  - event logic: keys, pointer, resize, lifecycle etc.
+
+kui notably missing important logic which is implementation dependent such as layout engine, text
+processing implementations, event queue logic(SPSC or multi-threaded) and rendering.
+*/
 package kui
 
 type errGeneric uint8
@@ -44,3 +54,9 @@ func (h Handle) Gen() uint8 { return uint8(h >> handleIndexBits) }
 
 // IsZero reports whether h refers to no node.
 func (h Handle) IsZero() bool { return h == 0 }
+
+// RGB returns an opaque color.
+func RGB(r, g, b uint8) Color { return Color{R: r, G: g, B: b, A: 255} }
+
+// RGBA returns a color with the given alpha.
+func RGBA(r, g, b, a uint8) Color { return Color{R: r, G: g, B: b, A: a} }
