@@ -4,7 +4,7 @@ import (
 	"github.com/soypat/kui/internal"
 )
 
-//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key -output=stringers.go
+//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align -output=stringers.go
 
 // Event is a single input event. It contains no pointers.
 type Event struct {
