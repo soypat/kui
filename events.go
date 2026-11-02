@@ -24,14 +24,16 @@ type EventWriter interface {
 }
 
 // Event is a single input event. It contains no pointers. Field meaning depends on Kind, see [EventKind].
+// Event defines raw device input before being processed by the UI. Event does not offer gesture/sense events.
+// These need to happen at the UI construction level since widgets define their interaction with gestures.
 type Event struct {
 	Time         int64         // Monotonic time of event in nanoseconds, arbitrary epoch.
 	Node         Handle        // Target node. Zero until the router resolves it.
 	X, Y, DX, DY float32       // Geometry in logical pixels, e.g. pointer position (X,Y), scroll amount (DX,DY).
 	Code         uint32        // [Key] for key events, rune for single-rune text. Opaque text offset when Len>0.
 	Len          uint16        // Byte length of multi-rune text/preedit (e.g. paste, IME). Zero otherwise.
-	Kind         EventKind     // Kind provides interpretation for [Event] fields. See list of possible [EventKind] i.e: [EventPointerDown]
-	Source       uint8         // Pointer ID: 0 is the mouse, touch points use 1 and up i.e: User dragging five fingers across screen has 5 distinct Source values 1..5.
+	Kind         EventKind     // Kind provides interpretation for [Event] fields. See list of possible [EventKind] e.g. [EventPointerDown]
+	Source       uint8         // Pointer ID: 0 is the mouse, touch points use 1 and up e.g. User dragging five fingers across screen has 5 distinct Source values 1..5.
 	Button       PointerButton // Button pressed or released on pointer down/up events.
 	KeyMods      KeyMods       // Modifier state (shift, ctrl, caps lock...) when the event was created.
 }
@@ -46,6 +48,9 @@ func (e *Event) Rune() rune { return rune(e.Code) }
 func (e *Event) IsString() bool {
 	return e.Len > 0 && (e.Kind == EventText || e.Kind == EventPreedit)
 }
+
+// IsRouted checks if [Event.Node] field has been set and event ready to be routed to UI node.
+func (e *Event) IsRouted() bool { return !e.Node.IsZero() }
 
 // Resize returns the width, height and scale values a EventResize was created with. See [EventBuilder.Resize].
 func (e *Event) Resize() (w, h, scale float32) {
@@ -206,14 +211,31 @@ const (
 	EventInsets // insets
 	// EventFocus and KindBlur report the window gained or lost input focus.
 	EventFocus // focus
-	EventBlur  // blur
+	// EventBlur reports lost input focus. See [EventFocus].
+	EventBlur // blur
 	// EventLifecycle reports an application lifecycle change in Code, see [Lifecycle].
 	EventLifecycle // lifecycle
 	// EventWake is posted by user code, i.e. from another goroutine, to wake the UI loop. Code is user defined.
 	EventWake // wake
 	// EventFrame is a display refresh tick.
 	EventFrame // frame
+	numEventKinds
+
+	// EventExt0 is the start of externally/user defined event kinds.
+	EventExt0 EventKind = 32 // ext0
 )
+
+var _ = [EventExt0]struct{}{}[numEventKinds] // compile time guarantee numEventKinds<EventExt0
+
+// StringConst returns a constant value on unknown or external event kinds without allocating.
+func (ev EventKind) StringConst() string {
+	if ev < numEventKinds {
+		return ev.String()
+	} else if ev < EventExt0 {
+		return "(undefined)"
+	}
+	return "(external)"
+}
 
 // KeyMods is a bit set of keyboard modifiers used in [Event]s.
 type KeyMods keymod
@@ -363,7 +385,7 @@ const (
 	KeyRightSuper Key = 0xE7 // rsuper
 )
 
-// IsModifier returns true if key is one of known key modifiers i.e: shift, capslock, ctrl, alt.
+// IsModifier returns true if key is one of known key modifiers e.g. shift, capslock, ctrl, alt.
 func (key Key) IsModifier() bool {
 	return (key >= 0xE0 && key <= 0xE7) || key == KeyCapsLock
 }
