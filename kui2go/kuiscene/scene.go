@@ -38,9 +38,9 @@ const (
 	FlagDisabled
 	// FlagFocusable makes the node reachable by keyboard focus traversal.
 	FlagFocusable
-	// FlagScroll makes the scene scroll the node in response to scroll events by adjusting its
+	// FlagScrollable makes the scene scroll the node in response to scroll events by adjusting its
 	// [kui.LayoutStyle.Scroll], clamped to its content. The node should clip (ClipX or ClipY).
-	FlagScroll
+	FlagScrollable
 	// FlagModal makes the node capture input while it is visible, i.e. a popup or dialog. Pointer
 	// input outside its subtree is discarded, focus traversal stays inside it, and pressing
 	// outside it or pressing Escape emits [EventDismiss] to it. Only the last modal node in paint
@@ -56,7 +56,7 @@ type Visual struct {
 	Border      kui.DrawBorders
 	Radius      kui.DrawRadii
 	// Text styles the node's text. Text.Color is the text color.
-	Text kui.Style
+	Text kui.TextStyle
 }
 
 // KindSpec defines the behavior of a node kind.
@@ -65,16 +65,16 @@ type KindSpec struct {
 	// SenseDrag, SenseDoubleTap and SenseLongPress makes presses hit the node. Keys and text go
 	// to the focused node regardless, see [FlagFocusable].
 	Sense gesture.Sense
-	// Reduce, if not nil, updates the state of node n in response to e. It is called for every
+	// Update, if not nil, updates the state of node n in response to e. It is called for every
 	// event targeting a node of this kind in the order events were produced, including events
-	// emitted by other Reduce calls. It may emit further events with [Scene.Emit].
-	Reduce func(k *Scene, n kui.Handle, e *WidgetEvent)
+	// emitted by other Update calls. It may emit further events with [Scene.Emit].
+	Update func(k *Scene, n kui.Handle, e *NodeEvent)
 	// Paint, if not nil, draws node n before its children. Nil uses [Scene.PaintBox].
 	// Nodes that clip (ClipX or ClipY) are clipped to their box while painting.
 	Paint func(k *Scene, n kui.Handle, l *kui.DrawList)
-	// PaintAfter, if not nil, draws over node n's children, outside of the node's own clip,
+	// PaintOver, if not nil, draws over node n's children, outside of the node's own clip,
 	// i.e. scroll bars and focus rings. The node's border is drawn by the scene afterwards.
-	PaintAfter func(k *Scene, n kui.Handle, l *kui.DrawList)
+	PaintOver func(k *Scene, n kui.Handle, l *kui.DrawList)
 	// Cursor is the cursor requested while the pointer hovers a node of this kind.
 	Cursor kui.Cursor
 }
@@ -114,7 +114,7 @@ type Memory struct {
 	roots  []root
 	hits   hitIndex
 	arena  []byte
-	events []WidgetEvent
+	events []NodeEvent
 	timers []timer
 	reqs   []kui.Request
 	// reqText holds the text of requests, i.e. text copied to the clipboard.
@@ -244,11 +244,11 @@ type Scene struct {
 	dropped    int
 	// stepEnd and reqEnd are the number of events and requests at the end of the last Step.
 	// Those added after them, outside Step (i.e. by SetFocus), are delivered with the next Step.
-	stepEnd   int
-	reqEnd    int
-	modal     int32 // Active modal node, -1 for none.
-	arenaNeed int
-	layoutErr error
+	stepEnd     int
+	reqEnd      int
+	modal       int32 // Active modal node, -1 for none.
+	bytesNeeded int
+	layoutErr   error
 }
 
 // Configure prepares the scene. It creates the root node and registers [KindBox].
@@ -386,9 +386,9 @@ func (scene *Scene) AddNode(parent kui.Handle, kind Kind, style *kui.LayoutStyle
 	return scene.handle(i), nil
 }
 
-// Remove removes node h and its descendants, invalidating their handles.
+// RemoveNode removes node h and its descendants, invalidating their handles.
 // The root node cannot be removed.
-func (scene *Scene) Remove(h kui.Handle) error {
+func (scene *Scene) RemoveNode(h kui.Handle) error {
 	i, err := scene.resolve(h)
 	if err != nil {
 		return err
@@ -550,8 +550,8 @@ func (scene *Scene) SetState(h kui.Handle, state uint32) error {
 	return nil
 }
 
-// User returns the user value of node h.
-func (scene *Scene) User(h kui.Handle) uint32 {
+// UserData returns the user value of node h.
+func (scene *Scene) UserData(h kui.Handle) uint32 {
 	if i, err := scene.resolve(h); err == nil {
 		return scene.mem.user[i]
 	}
@@ -568,8 +568,8 @@ func (scene *Scene) SetUser(h kui.Handle, v uint32) error {
 	return nil
 }
 
-// Box returns the bounding box of node h computed by the last layout.
-func (scene *Scene) Box(h kui.Handle) kui.Rect {
+// Bounds returns the bounding box of node h computed by the last layout.
+func (scene *Scene) Bounds(h kui.Handle) kui.Rect {
 	if i, err := scene.resolve(h); err == nil {
 		return scene.mem.box[i]
 	}
@@ -606,7 +606,7 @@ func (scene *Scene) SetText(h kui.Handle, s string) error {
 // EditText replaces bytes [start, end) of node h's text with s. Edits are made in place while
 // the text fits its capacity ([Scene.TextCap]); otherwise the text moves to the end of the
 // arena with a capacity of its new length, compacting the arena if it is full. If it still
-// does not fit [kui.ErrShortBuffer] is returned and [Scene.TextArenaNeed] reports the arena
+// does not fit [kui.ErrShortBuffer] is returned and [Scene.TextBytesNeeded] reports the arena
 // size required, leaving the text unchanged. s may be the text of another node, but not of h.
 func (scene *Scene) EditText(h kui.Handle, start, end int, s string) error {
 	i, err := scene.resolve(h)
@@ -687,7 +687,7 @@ func (scene *Scene) moveText(i int32, c int) error {
 	if c > cap(m.arena)-len(m.arena) {
 		scene.compactArena()
 		if c > cap(m.arena)-len(m.arena) {
-			scene.arenaNeed = len(m.arena) + c
+			scene.bytesNeeded = len(m.arena) + c
 			return kui.ErrShortBuffer
 		}
 	}
@@ -698,9 +698,9 @@ func (scene *Scene) moveText(i int32, c int) error {
 	return nil
 }
 
-// TextArenaNeed returns the arena size that would have been required by the last text edit
+// TextBytesNeeded returns the arena size that would have been required by the last text edit
 // that returned [kui.ErrShortBuffer].
-func (scene *Scene) TextArenaNeed() int { return scene.arenaNeed }
+func (scene *Scene) TextBytesNeeded() int { return scene.bytesNeeded }
 
 // compactArena moves live text spans to the start of the arena, in place, keeping their capacity.
 func (scene *Scene) compactArena() {

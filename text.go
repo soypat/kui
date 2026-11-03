@@ -44,11 +44,11 @@ type FontFace interface {
 type Measurer interface {
 	// Measure returns the width and height of s laid out on a single line. The height of
 	// the empty string is the height of a line.
-	Measure(s string, st *Style) (w, h float32)
+	Measure(s string, st *TextStyle) (w, h float32)
 }
 
-// Line is a laid out line of a node's text, see [Tree].
-type Line struct {
+// TextLine is a laid out line of a node's text, see [Tree].
+type TextLine struct {
 	Rect Rect
 	// Start and Len are the byte range of the line within the node's text.
 	Start, Len uint32
@@ -57,22 +57,22 @@ type Line struct {
 // Color is an alias of Go's standard library non-alpha-premultiplied 32-bit color [color.NRGBA].
 type Color = color.NRGBA
 
-type Style struct {
+type TextStyle struct {
 	FontID        uint16 //
 	Size          uint16 // Font size in pixels.
 	LetterSpacing uint16 // Extra space between characters in pixels.
 	LineHeight    uint16 // Height of each line in pixels. Zero uses the measured height.
 	Color         Color
-	Wrap          Wrap
+	Wrap          TextWrap
 	Align         Align
 }
 
-// Wrap controls how text is broken into lines.
-type Wrap uint8
+// TextWrap controls how text is broken into lines.
+type TextWrap uint8
 
 const (
 	// Break on whitespace and newlines.
-	WrapWords Wrap = iota // words
+	WrapWords TextWrap = iota // words
 	// Break only on newlines.
 	WrapNewlines // newlines
 	// Never break.

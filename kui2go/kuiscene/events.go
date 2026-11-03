@@ -11,7 +11,7 @@ import (
 //go:generate stringer -type=eventkind -linecomment -output=eventkind_string.go
 
 // Event kinds of the scene and of kinds, numbered from [gesture.EventExt0]. Nodes also receive,
-// as [WidgetEvent]s:
+// as [NodeEvent]s:
 //   - The gestures of package [gesture] (Press, Tap, DoubleTap, LongPress, Drag*, Hover*...),
 //     routed by hit testing to nodes sensing them, see [KindSpec.Sense].
 //   - [kui.EventScroll], a wheel scroll of DX, DY over nodes sensing [gesture.SenseScroll].
@@ -50,8 +50,8 @@ const (
 	evEventExt0
 )
 
-// KindString returns the name of event kind k: a scene kind's or [gesture.KindString].
-func KindString(k kui.EventKind) string {
+// EventKindString returns the name of event kind k: a scene kind's or [gesture.EventKindString].
+func EventKindString(k kui.EventKind) string {
 	if e := eventkind(k); e >= evFocusIn && e < evEventExt0 {
 		return e.String()
 	}
@@ -61,21 +61,21 @@ func KindString(k kui.EventKind) string {
 // sensePress is the input that makes presses hit a node.
 const sensePress = gesture.SensePress | gesture.SenseDrag | gesture.SenseDoubleTap | gesture.SenseLongPress
 
-// WidgetEvent is an event routed to a node: Node is set and pointer positions are relative to
+// NodeEvent is an event routed to a node: Node is set and pointer positions are relative to
 // the node's box. DX, DY is the drag motion or scroll amount. Code is the key of key events, the
 // value of EventChanged or the text of text events.
-type WidgetEvent kui.Event
+type NodeEvent kui.Event
 
 // KuiEvent returns e as a [kui.Event], for its methods.
-func (e *WidgetEvent) KuiEvent() *kui.Event { return (*kui.Event)(e) }
+func (e *NodeEvent) KuiEvent() *kui.Event { return (*kui.Event)(e) }
 
 // Gesture returns the gesture kind of e, or false if e is not a gesture.
-func (e *WidgetEvent) Gesture() (gesture.Kind, bool) { return gesture.KindOf(e.Kind) }
+func (e *NodeEvent) Gesture() (gesture.Kind, bool) { return gesture.KindOf(e.Kind) }
 
 // Emit appends an event to the output of the current Step. Its Reduce is called after those of
 // the events already emitted. Events emitted outside Step are delivered with the next Step.
 // Events are dropped if the event buffer is full; see [Scene.DroppedEvents].
-func (scene *Scene) Emit(e WidgetEvent) {
+func (scene *Scene) Emit(e NodeEvent) {
 	if len(scene.mem.events) == cap(scene.mem.events) {
 		scene.dropped++
 		return
@@ -87,7 +87,7 @@ func (scene *Scene) Emit(e WidgetEvent) {
 }
 
 // Events returns the events produced by the last Step. Valid until the next Step.
-func (scene *Scene) Events() []WidgetEvent { return scene.mem.events[:scene.stepEnd] }
+func (scene *Scene) Events() []NodeEvent { return scene.mem.events[:scene.stepEnd] }
 
 // Request queues a request to the host. text, if not empty, is copied to the buffer returned by
 // [Scene.Requests] and located by the request's Text. Requests made outside Step are delivered
@@ -123,7 +123,7 @@ func (scene *Scene) RequestText(r *kui.Request) string {
 // EventText writes the text of a [kui.EventText] or [kui.EventPreedit] event to dst and returns
 // its length. Text that does not fit dst is dropped at a rune boundary. Single rune events are
 // decoded directly; longer text is read from the Step's [TextSource].
-func (scene *Scene) EventText(dst []byte, e *WidgetEvent) int {
+func (scene *Scene) EventText(dst []byte, e *NodeEvent) int {
 	switch r := rune(e.Code); {
 	case e.Kind != kui.EventText && e.Kind != kui.EventPreedit:
 		return 0
@@ -175,7 +175,7 @@ func (h *hitIndex) query(x, y float32, sense gesture.Sense) int32 {
 	return -1
 }
 
-// HitTest returns the topmost node at p sensing any of sense, or zero. Nodes with [FlagScroll]
+// HitTest returns the topmost node at p sensing any of sense, or zero. Nodes with [FlagScrollable]
 // sense [gesture.SenseScroll].
 func (scene *Scene) HitTest(p kui.Point, sense gesture.Sense) kui.Handle {
 	scene.ensureLayout()

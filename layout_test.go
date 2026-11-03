@@ -9,7 +9,7 @@ func newTree(n int, order, subtree []int32) *Tree {
 		Subtree:   make([]int32, n),
 		Style:     make([]LayoutStyle, n),
 		Text:      make([]Span, n),
-		TextStyle: make([]Style, n),
+		TextStyle: make([]TextStyle, n),
 		Box:       make([]Rect, n),
 		Content:   make([]Size, n),
 		LineSpan:  make([]Span, n),
@@ -86,7 +86,7 @@ func TestTreeValidate(t *testing.T) {
 
 func TestTreeNodeLines(t *testing.T) {
 	tr := newTree(2, []int32{0, 1}, []int32{2, 1})
-	tr.Lines = []Line{{Start: 0, Len: 3}, {Start: 3, Len: 2}}
+	tr.Lines = []TextLine{{Start: 0, Len: 3}, {Start: 3, Len: 2}}
 	tr.LineSpan[1] = Span{Start: 0, Len: 2}
 	if got := tr.NodeLines(1); len(got) != 2 || got[1].Start != 3 {
 		t.Fatalf("lines %v", got)

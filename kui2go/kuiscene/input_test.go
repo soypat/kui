@@ -47,7 +47,7 @@ func TestTimers(t *testing.T) {
 	if err := f.k.SetTimer(f.other, 0, 1e9); err != kui.ErrCapacity {
 		t.Fatalf("want ErrCapacity, got %v", err)
 	}
-	f.k.Remove(f.items[0])
+	f.k.RemoveNode(f.items[0])
 	if err := f.k.SetTimer(f.other, 0, 1e9); err != nil {
 		t.Fatalf("stale timer not reclaimed: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestModal(t *testing.T) {
 	if f.k.Focus() != 0 {
 		t.Fatal("focus outside the modal node was kept")
 	}
-	x, y := center(f.k.Box(f.button))
+	x, y := center(f.k.Bounds(f.button))
 	evs := f.step(t, 2, at(2, events.PointerDown(x, y, kui.ButtonPrimary)), at(3, events.PointerUp(x, y, kui.ButtonPrimary)))
 	if got := kinds(evs); !slices.Equal(got, []kui.EventKind{EventFocusOut, EventDismiss}) || evs[1].Node != modal {
 		t.Fatalf("press outside modal: %v", got)
@@ -96,7 +96,7 @@ func TestModal(t *testing.T) {
 	if len(evs) != 1 || evs[0].Kind != EventDismiss || evs[0].Node != modal {
 		t.Fatalf("escape: %+v", evs)
 	}
-	cx, cy := center(f.k.Box(child))
+	cx, cy := center(f.k.Bounds(child))
 	evs = f.step(t, 30, at(30, events.PointerDown(cx, cy, kui.ButtonPrimary)))
 	if len(evs) != 1 || evs[0].Kind != gesture.Press || evs[0].Node != child {
 		t.Fatalf("press inside modal: %+v", evs)
@@ -120,11 +120,11 @@ func TestDragPan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.k.Remove(f.items[0])
+	f.k.RemoveNode(f.items[0])
 	tappable := f.k.Builder().Node(f.scroll, tapKind, &kui.LayoutStyle{Width: kui.Grow(0, 0), Height: kui.Fixed(20)}, &Visual{})
 	f.k.Layout()
 	// Dragging non interactive content pans its scroll container, emitting nothing.
-	x, _ := center(f.k.Box(f.scroll))
+	x, _ := center(f.k.Bounds(f.scroll))
 	evs := f.step(t, 1,
 		at(1, from(1, events.PointerDown(x, 95, kui.ButtonPrimary))),
 		at(2, from(1, events.PointerMove(x, 85, 0))),
@@ -136,7 +136,7 @@ func TestDragPan(t *testing.T) {
 	// A press on a node that does not sense drags is released when its container takes over.
 	f.k.ScrollBy(f.scroll, 0, 1000)
 	f.k.Layout()
-	x, y := center(f.k.Box(tappable))
+	x, y := center(f.k.Bounds(tappable))
 	evs = f.step(t, 10,
 		at(10, from(1, events.PointerDown(x, y, kui.ButtonPrimary))),
 		at(11, from(1, events.PointerMove(x, y+20, 0))),
@@ -221,9 +221,9 @@ func TestEditText(t *testing.T) {
 func TestPaintAfterAndHiddenFocus(t *testing.T) {
 	f := newFixture(t)
 	afterKind, err := f.k.RegisterKind(KindSpec{
-		Paint: func(k *Scene, n kui.Handle, l *kui.DrawList) { l.Custom(n, k.Box(n), 1, 0) },
-		PaintAfter: func(k *Scene, n kui.Handle, l *kui.DrawList) {
-			l.Custom(n, k.Box(n), 2, 0)
+		Paint: func(k *Scene, n kui.Handle, l *kui.DrawList) { l.Custom(n, k.Bounds(n), 1, 0) },
+		PaintOver: func(k *Scene, n kui.Handle, l *kui.DrawList) {
+			l.Custom(n, k.Bounds(n), 2, 0)
 		},
 	})
 	if err != nil {
@@ -271,7 +271,7 @@ func TestSetTextAliasing(t *testing.T) {
 	hole := b.Text(k.Root(), &kui.LayoutStyle{}, &Visual{}, "xxxxx") // Arena [0, 5).
 	src := b.Text(k.Root(), &kui.LayoutStyle{}, &Visual{}, "hello")  // [5, 10).
 	dst := b.Text(k.Root(), &kui.LayoutStyle{}, &Visual{}, "ab")     // [10, 12).
-	k.Remove(hole)
+	k.RemoveNode(hole)
 	// dst needs 5 bytes and 4 are free: compaction moves src to [0, 5), dst to [5, 7), then
 	// dst moves to [7, 12) over where src was.
 	if err := k.SetText(dst, k.Text(src)); err != nil {

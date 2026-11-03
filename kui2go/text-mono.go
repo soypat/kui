@@ -17,7 +17,7 @@ type TextMono struct {
 
 // Measure implements [kui.Measurer]: the rune count of s times the character advance plus
 // letter spacing, and the line height.
-func (m TextMono) Measure(s string, st *kui.Style) (w, h float32) {
+func (m TextMono) Measure(s string, st *kui.TextStyle) (w, h float32) {
 	n := kui.Scalar(utf8.RuneCountInString(s))
 	return n * (m.CharWidth + kui.Scalar(st.LetterSpacing)), m.LineHeight
 }

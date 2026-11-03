@@ -270,7 +270,7 @@ const _Wrap_name = "wordsnewlinesnone"
 
 var _Wrap_index = [...]uint8{0, 5, 13, 17}
 
-func (i Wrap) String() string {
+func (i TextWrap) String() string {
 	idx := int(i) - 0
 	if i < 0 || idx >= len(_Wrap_index)-1 {
 		return "Wrap(" + strconv.FormatInt(int64(i), 10) + ")"
@@ -290,7 +290,7 @@ const _Align_name = "leftcenterright"
 
 var _Align_index = [...]uint8{0, 4, 10, 15}
 
-func (i Align) String() string {
+func (i TextAlign) String() string {
 	idx := int(i) - 0
 	if i < 0 || idx >= len(_Align_index)-1 {
 		return "Align(" + strconv.FormatInt(int64(i), 10) + ")"

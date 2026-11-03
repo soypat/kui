@@ -197,9 +197,12 @@ func (e *LayoutBasic) maxOf(t *kui.Tree, c int32, x bool) float32 {
 	return maxSize(sizing(t, c, x))
 }
 
-// maxSize returns the maximum size of a sizing that is not a percentage: unbounded for 0.
+// maxSize returns the maximum size of a sizing that is not a percentage: unbounded for 0, but
+// Min for a fixed sizing, so that Fixed(0) is 0.
 func maxSize(s kui.Sizing) float32 {
-	if s.Max <= 0 {
+	if s.Kind == kui.SizeFixed {
+		return max(s.Min, 0)
+	} else if s.Max <= 0 {
 		return basicMaxFloat
 	}
 	return s.Max
@@ -294,7 +297,7 @@ func (e *LayoutBasic) fit(t *kui.Tree) {
 // word returns the next word of s from start, as clay measures them: a word and the space
 // after it, a word ending the text or a line, or the empty word of a newline (length 0) after
 // which the next word starts at next. width excludes newlines.
-func (e *LayoutBasic) word(s string, st *kui.Style, start int, spaceW float32) (wordStart, length, next int, width, height float32, ok bool) {
+func (e *LayoutBasic) word(s string, st *kui.TextStyle, start int, spaceW float32) (wordStart, length, next int, width, height float32, ok bool) {
 	for end := start; end < len(s); end++ {
 		if s[end] != ' ' && s[end] != '\n' {
 			continue
@@ -617,7 +620,7 @@ func (e *LayoutBasic) wrap(t *kui.Tree) error {
 	return err
 }
 
-func (e *LayoutBasic) wrapWords(s string, st *kui.Style, nd *basicNode, lw *lineWriter) {
+func (e *LayoutBasic) wrapWords(s string, st *kui.TextStyle, nd *basicNode, lw *lineWriter) {
 	spaceW, _ := e.measurer.Measure(" ", st)
 	spacing := float32(st.LetterSpacing)
 	limit := nd.text.W
@@ -662,7 +665,7 @@ type lineWriter struct {
 	t       *kui.Tree
 	n       int32
 	nd      *basicNode
-	st      *kui.Style
+	st      *kui.TextStyle
 	count   int // Lines of the text, including empty and dropped ones.
 	dropped bool
 }
@@ -684,7 +687,7 @@ func (lw *lineWriter) add(start, length int, w, h float32) {
 	case kui.AlignRight:
 		x = lw.nd.text.W - w
 	}
-	t.Lines = append(t.Lines, kui.Line{Rect: kui.Rect{X: x, Y: y, W: w, H: h}, Start: uint32(start), Len: uint32(length)})
+	t.Lines = append(t.Lines, kui.TextLine{Rect: kui.Rect{X: x, Y: y, W: w, H: h}, Start: uint32(start), Len: uint32(length)})
 	t.LineSpan[lw.n].Len++
 }
 

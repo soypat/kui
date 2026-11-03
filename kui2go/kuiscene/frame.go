@@ -129,7 +129,7 @@ func (scene *Scene) computeGeometry() {
 			}
 			focusable = focusable || scene.focus == scene.handle(i)
 			sense := scene.kinds[m.kind[i]].Sense
-			if f&FlagScroll != 0 {
+			if f&FlagScrollable != 0 {
 				sense |= gesture.SenseScroll
 			}
 			if sense != 0 {
@@ -209,7 +209,7 @@ func (scene *Scene) paintExit(i int32, l *kui.DrawList) {
 	if !scene.visible(i) {
 		return
 	}
-	if after := scene.kinds[m.kind[i]].PaintAfter; after != nil {
+	if after := scene.kinds[m.kind[i]].PaintOver; after != nil {
 		after(scene, h, l)
 	}
 	vis := &m.visual[i]

@@ -74,7 +74,7 @@ func newFixture(t testing.TB) *fixture {
 	f.kind, err = f.k.RegisterKind(KindSpec{
 		Sense:  sensePress | gesture.SenseHover,
 		Cursor: kui.CursorPointer,
-		Reduce: func(k *Scene, n kui.Handle, e *WidgetEvent) {
+		Update: func(k *Scene, n kui.Handle, e *NodeEvent) {
 			f.reduced = append(f.reduced, e.Kind)
 			switch e.Kind {
 			case gesture.Press:
@@ -82,7 +82,7 @@ func newFixture(t testing.TB) *fixture {
 			case gesture.Release:
 				k.SetState(n, 0)
 			case gesture.Tap:
-				k.Emit(WidgetEvent{Node: n, Kind: EventActivate})
+				k.Emit(NodeEvent{Node: n, Kind: EventActivate})
 			}
 		},
 	})
@@ -93,7 +93,7 @@ func newFixture(t testing.TB) *fixture {
 	b.SetPanic(true)
 	row := b.Box(f.k.Root(), &kui.LayoutStyle{Width: kui.Grow(0, 0), Height: kui.Fixed(30), Gap: 10}, &Visual{})
 	style := kui.LayoutStyle{Width: kui.Fixed(80), Height: kui.Grow(0, 0)}
-	vis := Visual{Background: kui.RGB(1, 2, 3), Text: kui.Style{Size: 16, Color: kui.RGB(255, 255, 255)}}
+	vis := Visual{Background: kui.RGB(1, 2, 3), Text: kui.TextStyle{Size: 16, Color: kui.RGB(255, 255, 255)}}
 	f.button = b.Node(row, f.kind, &style, &vis)
 	f.k.SetText(f.button, "OK")
 	f.other = b.Node(row, f.kind, &style, &vis)
@@ -101,7 +101,7 @@ func newFixture(t testing.TB) *fixture {
 	b.SetFlags(f.other, FlagFocusable)
 	// Scroll container with 10 items of 20px in 50px.
 	f.scroll = b.Box(f.k.Root(), &kui.LayoutStyle{Direction: kui.TopToBottom, Width: kui.Fixed(100), Height: kui.Fixed(50), ClipY: true}, &Visual{})
-	b.SetFlags(f.scroll, FlagScroll)
+	b.SetFlags(f.scroll, FlagScrollable)
 	for i := range f.items {
 		f.items[i] = b.Text(f.scroll, &kui.LayoutStyle{Width: kui.Grow(0, 0), Height: kui.Fixed(20)}, &vis, "item")
 	}
@@ -113,7 +113,7 @@ func newFixture(t testing.TB) *fixture {
 	return f
 }
 
-func (f *fixture) step(t testing.TB, now int64, evs ...kui.Event) []WidgetEvent {
+func (f *fixture) step(t testing.TB, now int64, evs ...kui.Event) []NodeEvent {
 	t.Helper()
 	if err := f.k.Step(now, evs, nil); err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func (f *fixture) step(t testing.TB, now int64, evs ...kui.Event) []WidgetEvent 
 	return f.k.Events()
 }
 
-func kinds(evs []WidgetEvent) kindList {
+func kinds(evs []NodeEvent) kindList {
 	var out kindList
 	for _, e := range evs {
 		out = append(out, e.Kind)
@@ -138,7 +138,7 @@ func (l kindList) String() string {
 		if i > 0 {
 			b = append(b, ' ')
 		}
-		b = append(b, KindString(k)...)
+		b = append(b, EventKindString(k)...)
 	}
 	return "[" + string(b) + "]"
 }
@@ -150,15 +150,15 @@ func TestLayoutAndHit(t *testing.T) {
 	if err := f.k.Layout(); err != nil {
 		t.Fatal(err)
 	}
-	if b := f.k.Box(f.button); b != (kui.Rect{X: 10, Y: 10, W: 80, H: 30}) {
+	if b := f.k.Bounds(f.button); b != (kui.Rect{X: 10, Y: 10, W: 80, H: 30}) {
 		t.Fatalf("button box %+v", b)
 	}
-	x, y := center(f.k.Box(f.button))
+	x, y := center(f.k.Bounds(f.button))
 	if h := f.k.HitTest(kui.Point{X: x, Y: y}, sensePress); h != f.button {
 		t.Fatalf("hit test: want button, got %x", h)
 	}
 	// The floating node covers the top left of the other button and is on top.
-	ob := f.k.Box(f.other)
+	ob := f.k.Bounds(f.other)
 	if h := f.k.HitTest(kui.Point{X: ob.X + 5, Y: ob.Y + 5}, sensePress); h != f.fl {
 		t.Fatalf("hit test: want floating node, got %x", h)
 	}
@@ -174,7 +174,7 @@ func TestLayoutAndHit(t *testing.T) {
 func TestTapDoubleTapAndHover(t *testing.T) {
 	f := newFixture(t)
 	f.k.Layout()
-	x, y := center(f.k.Box(f.button))
+	x, y := center(f.k.Bounds(f.button))
 	got := kinds(f.step(t, 1*ms, at(1*ms, events.PointerMove(x, y, 0))))
 	if !slices.Equal(got, []kui.EventKind{gesture.HoverIn}) {
 		t.Fatalf("hover: %v", got)
@@ -213,7 +213,7 @@ func TestTapDoubleTapAndHover(t *testing.T) {
 func TestDragAndLongPress(t *testing.T) {
 	f := newFixture(t)
 	f.k.Layout()
-	x, y := center(f.k.Box(f.button))
+	x, y := center(f.k.Bounds(f.button))
 	evs := f.step(t, 1*ms,
 		at(1*ms, events.PointerDown(x, y, kui.ButtonPrimary)),
 		at(2*ms, events.PointerMove(x+2, y, 0)),  // Within slop.
@@ -278,14 +278,14 @@ func TestFocusAndKeys(t *testing.T) {
 func TestScroll(t *testing.T) {
 	f := newFixture(t)
 	f.k.Layout()
-	box := f.k.Box(f.scroll)
+	box := f.k.Bounds(f.scroll)
 	x, y := center(box)
-	first := f.k.Box(f.items[0])
+	first := f.k.Bounds(f.items[0])
 	f.step(t, 1, at(1, events.Scroll(x, y, 0, 30)))
 	if s := f.k.Style(f.scroll).Scroll; s.Y != -30 {
 		t.Fatalf("scroll offset %+v", s)
 	}
-	if moved := f.k.Box(f.items[0]); moved.Y != first.Y-30 {
+	if moved := f.k.Bounds(f.items[0]); moved.Y != first.Y-30 {
 		t.Fatalf("item did not move: %+v -> %+v", first, moved)
 	}
 	// Clamped to content: 10 items * 20px - 50px = 150px overflow.
@@ -301,13 +301,13 @@ func TestScroll(t *testing.T) {
 
 func TestRemoveAndText(t *testing.T) {
 	f := newFixture(t)
-	if err := f.k.Remove(f.scroll); err != nil {
+	if err := f.k.RemoveNode(f.scroll); err != nil {
 		t.Fatal(err)
 	}
 	if f.k.Valid(f.items[3]) || f.k.SetText(f.items[3], "x") != kui.ErrStaleHandle {
 		t.Fatal("removed descendants should be stale")
 	}
-	if err := f.k.Remove(f.k.Root()); err == nil {
+	if err := f.k.RemoveNode(f.k.Root()); err == nil {
 		t.Fatal("removing the root should fail")
 	}
 	// Reuse freed slots; handles differ by generation.
@@ -325,8 +325,8 @@ func TestRemoveAndText(t *testing.T) {
 		t.Fatalf("text after compaction: %q", f.k.Text(f.button))
 	}
 	long := string(make([]byte, 300))
-	if err := f.k.SetText(f.other, long); err != kui.ErrShortBuffer || f.k.TextArenaNeed() < 300 {
-		t.Fatalf("want ErrShortBuffer, got %v need=%d", err, f.k.TextArenaNeed())
+	if err := f.k.SetText(f.other, long); err != kui.ErrShortBuffer || f.k.TextBytesNeeded() < 300 {
+		t.Fatalf("want ErrShortBuffer, got %v need=%d", err, f.k.TextBytesNeeded())
 	}
 }
 
@@ -375,8 +375,8 @@ func TestStepPaintAllocs(t *testing.T) {
 	f.k.Layout()
 	var l kui.DrawList
 	l.Reset(make([]kui.DrawCmd, 0, 64), make([]byte, 0, 256))
-	x, y := center(f.k.Box(f.button))
-	sx, sy := center(f.k.Box(f.scroll))
+	x, y := center(f.k.Bounds(f.button))
+	sx, sy := center(f.k.Bounds(f.scroll))
 	evs := []kui.Event{
 		at(1, events.PointerMove(x, y, 0)),
 		at(2, events.PointerDown(x, y, kui.ButtonPrimary)),
@@ -404,12 +404,12 @@ func TestStepPaintAllocs(t *testing.T) {
 }
 
 // script runs a deterministic sequence of events and returns all widget events and paint commands.
-func script(t testing.TB, data []byte) ([]WidgetEvent, []kui.DrawCmd) {
+func script(t testing.TB, data []byte) ([]NodeEvent, []kui.DrawCmd) {
 	f := newFixture(t)
 	modal, _ := f.addModal(t)
 	var l kui.DrawList
 	l.Reset(make([]kui.DrawCmd, 0, 256), make([]byte, 0, 1024))
-	var all []WidgetEvent
+	var all []NodeEvent
 	var cmds []kui.DrawCmd
 	now := int64(0)
 	for i := 0; i+4 <= len(data); i += 4 {
@@ -438,7 +438,7 @@ func script(t testing.TB, data []byte) ([]WidgetEvent, []kui.DrawCmd) {
 			case 0:
 				f.k.SetText(f.items[b[2]%10], string(rune('a'+b[3]%26)))
 			case 1:
-				f.k.Remove(f.items[b[2]%10])
+				f.k.RemoveNode(f.items[b[2]%10])
 			case 2:
 				f.k.SetFlags(f.button, Flags(b[2])&(FlagHidden|FlagDisabled|FlagFocusable))
 			case 3:
@@ -524,20 +524,20 @@ func FuzzSceneStep(f *testing.F) {
 
 func TestKindString(t *testing.T) {
 	for k := EventFocusIn; k < EventExt0; k++ {
-		if s := KindString(k); s == "" || s == k.String() {
+		if s := EventKindString(k); s == "" || s == k.String() {
 			t.Errorf("kind %d has no name", k)
 		}
 	}
 	if EventFocusIn != gesture.EventExt0 || EventExt0 != EventDismiss+1 {
 		t.Error("scene kinds overlap others")
 	}
-	if KindString(gesture.Tap) != gesture.KindString(gesture.Tap) || KindString(EventExt0) != EventExt0.StringConst() {
+	if EventKindString(gesture.Tap) != gesture.KindString(gesture.Tap) || EventKindString(EventExt0) != EventExt0.StringConst() {
 		t.Error("KindString of a kind not of the scene")
 	}
 	if s := (kindList{gesture.Press, EventFocusIn, kui.EventKeyDown}).String(); s != "[press focus in keydown]" {
 		t.Error("kind list:", s)
 	}
-	e := WidgetEvent{Kind: gesture.DragStart}
+	e := NodeEvent{Kind: gesture.DragStart}
 	if g, ok := e.Gesture(); !ok || g.Sense() != gesture.SenseDrag {
 		t.Error("drag start not a drag gesture")
 	}

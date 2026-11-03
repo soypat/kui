@@ -33,7 +33,7 @@ type Tree struct {
 	// Text is the byte range of each node's text in TextBytes, empty for none, and TextStyle
 	// its style.
 	Text      []Span
-	TextStyle []Style
+	TextStyle []TextStyle
 	TextBytes []byte
 
 	// Box receives the bounding box of each node.
@@ -44,7 +44,7 @@ type Tree struct {
 	// Lines receives the visible lines of text, up to its capacity, and LineSpan the range of
 	// each node's lines in it.
 	LineSpan []Span
-	Lines    []Line
+	Lines    []TextLine
 }
 
 // SubtreeEnd returns the position in Order just past the subtree of the node at position p.
@@ -52,7 +52,7 @@ type Tree struct {
 func (t *Tree) SubtreeEnd(p int) int { return p + int(t.Subtree[t.Order[p]]) }
 
 // NodeLines returns the visible lines of text of node n written by the last layout.
-func (t *Tree) NodeLines(n int) []Line {
+func (t *Tree) NodeLines(n int) []TextLine {
 	sp := t.LineSpan[n]
 	if sp.End() > uint32(len(t.Lines)) {
 		return nil
@@ -139,7 +139,7 @@ func Fixed(size Scalar) Sizing { return Sizing{Kind: SizeFixed, Min: size, Max: 
 // Percent returns a sizing relative to the parent's size.
 func Percent(p Scalar) Sizing { return Sizing{Kind: SizePercent, Percent: p} }
 
-// VAlign is the vertical alignment of children within a node. Their horizontal alignment is an [Align].
+// VAlign is the vertical alignment of children within a node. Their horizontal alignment is an [TextAlign].
 type VAlign uint8
 
 const (
@@ -195,9 +195,9 @@ type LayoutStyle struct {
 	Width     Sizing
 	Height    Sizing
 	Padding   Insets
-	Gap       Scalar // Space between children along Direction.
-	AlignX    Align  // Horizontal alignment of children.
-	AlignY    VAlign // Vertical alignment of children.
+	Gap       Scalar    // Space between children along Direction.
+	AlignX    TextAlign // Horizontal alignment of children.
+	AlignY    VAlign    // Vertical alignment of children.
 	// ClipX and ClipY clip children overflowing the node, making it a scroll container.
 	ClipX, ClipY bool
 	// Scroll offsets the children of a clipping node, i.e. its scroll position (usually negative).

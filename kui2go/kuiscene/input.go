@@ -30,7 +30,7 @@ func (scene *Scene) Step(now int64, events []kui.Event, text TextSource) error {
 	for i := 0; i < len(m.events); i++ {
 		e := &m.events[i]
 		if j, err := scene.resolve(e.Node); err == nil {
-			if reduce := scene.kinds[m.kind[j]].Reduce; reduce != nil {
+			if reduce := scene.kinds[m.kind[j]].Update; reduce != nil {
 				reduce(scene, e.Node, e)
 			}
 		}
@@ -126,13 +126,13 @@ func (s *scene) Hover(p kui.Point) kui.Handle {
 }
 
 // DragTarget returns the nearest of n and its ancestors whose kind senses drags or that has
-// [FlagScroll]. The search stops at the active modal node.
+// [FlagScrollable]. The search stops at the active modal node.
 func (s *scene) DragTarget(n kui.Handle) kui.Handle {
 	k := (*Scene)(s)
 	m := k.mem
 	i, _ := k.resolve(n)
 	for ; i >= 0; i = m.links[i].parent {
-		if m.flags[i]&FlagDisabled == 0 && (k.kinds[m.kind[i]].Sense&gesture.SenseDrag != 0 || m.flags[i]&FlagScroll != 0) {
+		if m.flags[i]&FlagDisabled == 0 && (k.kinds[m.kind[i]].Sense&gesture.SenseDrag != 0 || m.flags[i]&FlagScrollable != 0) {
 			return k.handle(i)
 		} else if i == k.modal {
 			break
@@ -170,7 +170,7 @@ func (k *Scene) pointer(ev *kui.Event) {
 }
 
 // deliver emits gesture g to its node. Drags of nodes not sensing them pan their content
-// ([FlagScroll] nodes).
+// ([FlagScrollable] nodes).
 func (scene *Scene) deliver(g *gesture.Event) {
 	i, err := scene.resolve(g.Node)
 	if g.Kind == gesture.Press {
@@ -188,14 +188,14 @@ func (scene *Scene) deliver(g *gesture.Event) {
 			return
 		}
 	}
-	scene.emitAt(i, WidgetEvent(*g))
+	scene.emitAt(i, NodeEvent(*g))
 }
 
 // press delivers a press on node i, -1 for none.
 func (scene *Scene) press(i int32, g *gesture.Event) {
 	if !scene.inModal(i) {
 		// Presses outside the modal node dismiss it and reach nothing else.
-		e := WidgetEvent(*g)
+		e := NodeEvent(*g)
 		e.Kind = EventDismiss
 		scene.emitAt(scene.modal, e)
 		return
@@ -203,7 +203,7 @@ func (scene *Scene) press(i int32, g *gesture.Event) {
 	// Pressing focuses focusable nodes and unfocuses otherwise, like most toolkits.
 	focus := kui.Handle(0)
 	if i >= 0 {
-		scene.emitAt(i, WidgetEvent(*g))
+		scene.emitAt(i, NodeEvent(*g))
 		if scene.mem.flags[i]&FlagFocusable != 0 {
 			focus = g.Node
 		}
@@ -212,7 +212,7 @@ func (scene *Scene) press(i int32, g *gesture.Event) {
 }
 
 // emitAt emits e for node i with its position made relative to the node's box.
-func (scene *Scene) emitAt(i int32, e WidgetEvent) {
+func (scene *Scene) emitAt(i int32, e NodeEvent) {
 	box := scene.mem.box[i]
 	e.Node, e.X, e.Y = scene.handle(i), e.X-box.X, e.Y-box.Y
 	scene.Emit(e)
@@ -230,7 +230,7 @@ func (scene *Scene) route(ev *kui.Event) {
 		case key == kui.KeyTab && ev.KeyMods&(kui.KeyModCtrl|kui.KeyModAlt|kui.KeyModSuper) == 0:
 			scene.focusNext(ev.KeyMods&kui.KeyModShift != 0)
 		case key == kui.KeyEscape && scene.modal >= 0:
-			scene.Emit(WidgetEvent{Time: ev.Time, Node: scene.handle(scene.modal), Kind: EventDismiss, Code: ev.Code, KeyMods: ev.KeyMods})
+			scene.Emit(NodeEvent{Time: ev.Time, Node: scene.handle(scene.modal), Kind: EventDismiss, Code: ev.Code, KeyMods: ev.KeyMods})
 		default:
 			scene.emitFocused(ev)
 		}
@@ -244,7 +244,7 @@ func (scene *Scene) route(ev *kui.Event) {
 
 func (scene *Scene) emitFocused(ev *kui.Event) {
 	if scene.Valid(scene.focus) {
-		e := WidgetEvent(*ev)
+		e := NodeEvent(*ev)
 		e.Node = scene.focus
 		scene.Emit(e)
 	}
@@ -277,7 +277,7 @@ func (k *Scene) checkTimers() {
 		if !k.Valid(t.node) {
 			continue
 		} else if t.at <= k.now {
-			k.Emit(WidgetEvent{Node: t.node, Kind: EventTimer, Code: t.code})
+			k.Emit(NodeEvent{Node: t.node, Kind: EventTimer, Code: t.code})
 			continue
 		}
 		m.timers[j] = t
@@ -291,11 +291,11 @@ func (scene *Scene) scroll(ev *kui.Event) {
 	if target < 0 || !scene.inModal(target) {
 		return
 	}
-	if scene.mem.flags[target]&FlagScroll != 0 {
+	if scene.mem.flags[target]&FlagScrollable != 0 {
 		scene.scrollBy(target, ev.DX, ev.DY)
 	}
 	if scene.kinds[scene.mem.kind[target]].Sense&gesture.SenseScroll != 0 {
-		scene.emitAt(target, WidgetEvent(*ev))
+		scene.emitAt(target, NodeEvent(*ev))
 	}
 }
 
@@ -345,11 +345,11 @@ func (scene *Scene) changeFocus(h kui.Handle) {
 		return
 	}
 	if _, err := scene.resolve(scene.focus); err == nil {
-		scene.Emit(WidgetEvent{Node: scene.focus, Kind: EventFocusOut})
+		scene.Emit(NodeEvent{Node: scene.focus, Kind: EventFocusOut})
 	}
 	scene.focus = h
 	if _, err := scene.resolve(h); err == nil {
-		scene.Emit(WidgetEvent{Node: h, Kind: EventFocusIn})
+		scene.Emit(NodeEvent{Node: h, Kind: EventFocusIn})
 	}
 	scene.needPaint = true
 }

@@ -32,12 +32,12 @@ func newLayoutTree() *kui.Tree {
 		Subtree:   make([]int32, nodes),
 		Style:     make([]kui.LayoutStyle, nodes),
 		Text:      make([]kui.Span, nodes),
-		TextStyle: make([]kui.Style, nodes),
+		TextStyle: make([]kui.TextStyle, nodes),
 		TextBytes: []byte("hello one two three four"),
 		Box:       make([]kui.Rect, nodes),
 		Content:   make([]kui.Size, nodes),
 		LineSpan:  make([]kui.Span, nodes),
-		Lines:     make([]kui.Line, 0, 8),
+		Lines:     make([]kui.TextLine, 0, 8),
 	}
 	t.Subtree[root], t.Subtree[header], t.Subtree[label], t.Subtree[scroll], t.Subtree[popup] = 5, 2, 1, 1, 1
 	t.Style[root] = kui.LayoutStyle{Direction: kui.TopToBottom, Width: kui.Grow(0, 0), Height: kui.Grow(0, 0), Padding: kui.InsetsAll(10), Gap: 5}
@@ -47,8 +47,8 @@ func newLayoutTree() *kui.Tree {
 	t.Style[popup] = kui.LayoutStyle{Width: kui.Fixed(20), Height: kui.Fixed(20), Floating: kui.Floating{AttachTo: kui.AttachNode, Node: kui.MakeHandle(header, 3), Element: kui.AttachLeftTop, Parent: kui.AttachLeftBottom, Z: 1}}
 	t.Text[label] = kui.Span{Start: 0, Len: 5}
 	t.Text[scroll] = kui.Span{Start: 6, Len: 18}
-	t.TextStyle[label] = kui.Style{Size: 16}
-	t.TextStyle[scroll] = kui.Style{Size: 16}
+	t.TextStyle[label] = kui.TextStyle{Size: 16}
+	t.TextStyle[scroll] = kui.TextStyle{Size: 16}
 	t.Box[6] = kui.Rect{X: 1, Y: 2, W: 3, H: 4} // Unlisted nodes keep their outputs.
 	return t
 }
@@ -115,12 +115,12 @@ func TestLayoutBasicSizing(t *testing.T) {
 		Subtree:   []int32{5, 1, 1, 1, 1},
 		Style:     make([]kui.LayoutStyle, 5),
 		Text:      make([]kui.Span, 5),
-		TextStyle: make([]kui.Style, 5),
+		TextStyle: make([]kui.TextStyle, 5),
 		TextBytes: []byte("aa bb"),
 		Box:       make([]kui.Rect, 5),
 		Content:   make([]kui.Size, 5),
 		LineSpan:  make([]kui.Span, 5),
-		Lines:     make([]kui.Line, 0, 4),
+		Lines:     make([]kui.TextLine, 0, 4),
 	}
 	tr.Style[0] = kui.LayoutStyle{Width: kui.Fixed(130), Height: kui.Fit(0, 0), Padding: kui.Insets{Left: 5, Right: 5}, Gap: 10, AlignY: kui.AlignBottom}
 	tr.Style[1] = kui.LayoutStyle{Width: kui.Fixed(20), Height: kui.Fixed(10)}
