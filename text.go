@@ -64,7 +64,7 @@ type TextStyle struct {
 	LineHeight    uint16 // Height of each line in pixels. Zero uses the measured height.
 	Color         Color
 	Wrap          TextWrap
-	Align         Align
+	Align         AlignH
 }
 
 // TextWrap controls how text is broken into lines.
@@ -79,12 +79,12 @@ const (
 	WrapNone // none
 )
 
-// Align is a horizontal alignment: of wrapped lines within their box, and of children within a
+// AlignH is a horizontal alignment: of wrapped lines within their box, and of children within a
 // node ([LayoutStyle.AlignX]).
-type Align uint8
+type AlignH uint8
 
 const (
-	AlignLeft   Align = iota // left
-	AlignCenter              // center
-	AlignRight               // right
+	AlignLeft   AlignH = iota // left
+	AlignCenter               // center
+	AlignRight                // right
 )

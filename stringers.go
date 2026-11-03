@@ -290,7 +290,7 @@ const _Align_name = "leftcenterright"
 
 var _Align_index = [...]uint8{0, 4, 10, 15}
 
-func (i TextAlign) String() string {
+func (i AlignH) String() string {
 	idx := int(i) - 0
 	if i < 0 || idx >= len(_Align_index)-1 {
 		return "Align(" + strconv.FormatInt(int64(i), 10) + ")"
@@ -350,7 +350,7 @@ const _VAlign_name = "topmiddlebottom"
 
 var _VAlign_index = [...]uint8{0, 3, 9, 15}
 
-func (i VAlign) String() string {
+func (i AlignV) String() string {
 	idx := int(i) - 0
 	if i < 0 || idx >= len(_VAlign_index)-1 {
 		return "VAlign(" + strconv.FormatInt(int64(i), 10) + ")"

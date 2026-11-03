@@ -108,7 +108,7 @@ func (s *scene) names(gs []Event) []string {
 		if i := g.Node.Index() - 1; !g.Node.IsZero() && i < len(s.nodes) {
 			name = s.nodes[i].name
 		}
-		out = append(out, KindString(g.Kind)+" "+name)
+		out = append(out, EventKindString(g.Kind)+" "+name)
 	}
 	return out
 }
@@ -238,7 +238,7 @@ func TestDrag(t *testing.T) {
 	check(t, "drag", s.names(gs), "press slider", "drag start slider", "drag slider", "drag end slider", "release slider")
 	for i, want := range []kui.Point{{X: 10}, {X: 5, Y: 1}, {X: 1}} {
 		if g := gs[i+1]; g.DX != want.X || g.DY != want.Y {
-			t.Fatalf("%v delta: want %v, got %v,%v", KindString(g.Kind), want, g.DX, g.DY)
+			t.Fatalf("%v delta: want %v, got %v,%v", EventKindString(g.Kind), want, g.DX, g.DY)
 		}
 	}
 }
@@ -302,7 +302,7 @@ func TestMultiPointer(t *testing.T) {
 	sources := []uint8{1, 2, 3, 2, 1, 1, 3, 3, 2, 2}
 	for i, g := range gs {
 		if g.Source != sources[i] {
-			t.Fatalf("gesture %d %v: source %d, want %d", i, KindString(g.Kind), g.Source, sources[i])
+			t.Fatalf("gesture %d %v: source %d, want %d", i, EventKindString(g.Kind), g.Source, sources[i])
 		}
 	}
 }
@@ -382,7 +382,7 @@ func TestInvariants(t *testing.T) {
 	}
 	fail := func(i int, g Event, what string) {
 		t.Helper()
-		t.Fatalf("step %d: %v of node %d from source %d: %s", i, KindString(g.Kind), g.Node.Index(), g.Source, what)
+		t.Fatalf("step %d: %v of node %d from source %d: %s", i, EventKindString(g.Kind), g.Node.Index(), g.Source, what)
 	}
 	now := int64(0)
 	var gs []Event
@@ -470,7 +470,7 @@ func TestInvariants(t *testing.T) {
 	}
 	for k := Press; k <= HoverOut; k++ {
 		if seen[k] == 0 {
-			t.Errorf("no %v gestures", KindString(k))
+			t.Errorf("no %v gestures", EventKindString(k))
 		}
 	}
 	t.Logf("gestures seen: %v", seen[Press:])
@@ -482,12 +482,12 @@ func TestKind(t *testing.T) {
 	}
 	for k := Press; k < EventExt0; k++ {
 		g, ok := KindOf(k)
-		if !ok || kui.EventKind(g) != k || g.Sense() == 0 || KindString(k) != g.String() || g.String() == k.String() {
+		if !ok || kui.EventKind(g) != k || g.Sense() == 0 || EventKindString(k) != g.String() || g.String() == k.String() {
 			t.Errorf("kind %d: %v %v sense %v", k, g, ok, g.Sense())
 		}
 	}
 	for _, k := range []kui.EventKind{0, kui.EventKeyDown, Press - 1, EventExt0} {
-		if g, ok := KindOf(k); ok || g != 0 || Kind(k).Sense() != 0 || KindString(k) != k.StringConst() {
+		if g, ok := KindOf(k); ok || g != 0 || Kind(k).Sense() != 0 || EventKindString(k) != k.StringConst() {
 			t.Errorf("kind %d taken for a gesture", k)
 		}
 	}

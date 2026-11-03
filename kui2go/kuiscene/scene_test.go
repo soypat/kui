@@ -531,7 +531,7 @@ func TestKindString(t *testing.T) {
 	if EventFocusIn != gesture.EventExt0 || EventExt0 != EventDismiss+1 {
 		t.Error("scene kinds overlap others")
 	}
-	if EventKindString(gesture.Tap) != gesture.KindString(gesture.Tap) || EventKindString(EventExt0) != EventExt0.StringConst() {
+	if EventKindString(gesture.Tap) != gesture.EventKindString(gesture.Tap) || EventKindString(EventExt0) != EventExt0.StringConst() {
 		t.Error("KindString of a kind not of the scene")
 	}
 	if s := (kindList{gesture.Press, EventFocusIn, kui.EventKeyDown}).String(); s != "[press focus in keydown]" {

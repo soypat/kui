@@ -19,9 +19,8 @@ type LayoutBasicConfig struct {
 
 // LayoutBasic is a [kui.LayoutEngine] running clay's layout algorithm directly over a
 // [kui.Tree]: passes over its slices instead of clay's element declarations, hash map and render
-// commands. It gives the geometry clay does, with two differences: padding and gaps are not
-// rounded to whole pixels, and the lines of all text laid out are written, not only the visible
-// ones. A floating node attached to a node not laid out is placed relative to the origin.
+// commands. It gives the geometry clay does, but for padding and gaps not being rounded to whole
+// pixels. A floating node attached to a node not laid out is placed relative to the origin.
 //
 // Configure it before use. It does not allocate afterwards.
 type LayoutBasic struct {
@@ -223,10 +222,12 @@ func fixAspect(t *kui.Tree, c int32) {
 		return
 	}
 	b := &t.Box[c]
-	if ar := t.Style[c].AspectRatio; ar != 0 {
-		if b.W == 0 && b.H != 0 {
+	s := &t.Style[c]
+	// A fixed axis is not derived, even when its size is 0.
+	if ar := s.AspectRatio; ar != 0 {
+		if b.W == 0 && b.H != 0 && s.Width.Kind != kui.SizeFixed {
 			b.W = b.H * ar
-		} else if b.W != 0 && b.H == 0 {
+		} else if b.W != 0 && b.H == 0 && s.Height.Kind != kui.SizeFixed {
 			b.H = b.W * (1 / ar)
 		}
 	}

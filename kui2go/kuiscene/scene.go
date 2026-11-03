@@ -10,6 +10,8 @@
 //
 // Widget behavior is table driven: each node has a [Kind] whose [KindSpec] declares which
 // pointer input it senses, how its state reacts to events and how it is painted.
+// [WidgetBuilder] registers ready made kinds: buttons, check boxes, text entries, sliders,
+// scroll containers, popups and tooltips.
 package kuiscene
 
 import (

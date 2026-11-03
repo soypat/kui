@@ -2,12 +2,20 @@ package kui
 
 // LayoutEngine computes the geometry of a [Tree]. Implementations must not allocate after
 // configuration nor retain the tree; they may keep state between layouts, i.e. caches.
+//
+// Engines follow clay's layout algorithm, including behavior that may surprise:
+//   - Wrapped text is at least one line tall: a column overflowing its height that does not
+//     clip may compress wrapped text to one line, its lines overflowing its box.
+//   - Word wrapping counts a word's trailing space, so a line exactly as wide as its box
+//     without that space wraps early.
+//
+// Sizing and floating fields document their own quirks.
 type LayoutEngine interface {
 	// Layout lays out t within a viewport of the given size. It reads Order, Subtree, Style, Text,
 	// TextStyle and TextBytes, and writes, for every node n listed in Order:
 	//   - Box[n]: the node's bounding box in viewport coordinates, ancestors' Scroll applied.
 	//   - Content[n], if n clips: the size of its content including padding, which bounds scrolling.
-	//   - LineSpan[n]: the range in Lines of the node's visible lines of text, empty for none.
+	//   - LineSpan[n]: the range in Lines of the node's lines of text, empty for none.
 	//
 	// Lines is rewritten from its start up to its capacity. Nodes not listed and inputs are left
 	// unchanged. Layout returns the error of [Tree.Validate] or [ErrCapacity] writing nothing, and
@@ -41,8 +49,8 @@ type Tree struct {
 	// Content receives the size of the content of each clipping node, including its padding.
 	// Scrolling reveals the content outside the node's box.
 	Content []Size
-	// Lines receives the visible lines of text, up to its capacity, and LineSpan the range of
-	// each node's lines in it.
+	// Lines receives the lines of text of every node laid out, on screen or not and empty ones
+	// omitted, up to its capacity, and LineSpan the range of each node's lines in it.
 	LineSpan []Span
 	Lines    []TextLine
 }
@@ -51,7 +59,7 @@ type Tree struct {
 // Its children are found iterating c from p+1 while c < SubtreeEnd(p), with c = SubtreeEnd(c).
 func (t *Tree) SubtreeEnd(p int) int { return p + int(t.Subtree[t.Order[p]]) }
 
-// NodeLines returns the visible lines of text of node n written by the last layout.
+// NodeLines returns the lines of text of node n written by the last layout.
 func (t *Tree) NodeLines(n int) []TextLine {
 	sp := t.LineSpan[n]
 	if sp.End() > uint32(len(t.Lines)) {
@@ -116,7 +124,8 @@ const (
 	SizeGrow // grow
 	// SizeFixed sizes the node to exactly Min.
 	SizeFixed // fixed
-	// SizePercent sizes the node to Percent (0..1) of its parent's size minus padding and gaps.
+	// SizePercent sizes the node to Percent (0..1) of its parent's size minus padding and gaps,
+	// ignoring Min and Max.
 	SizePercent // percent
 )
 
@@ -133,17 +142,18 @@ func Fit(min, max Scalar) Sizing { return Sizing{Kind: SizeFit, Min: min, Max: m
 // Grow returns a sizing that fills available space, clamped to [min, max]. A max of 0 is unbounded.
 func Grow(min, max Scalar) Sizing { return Sizing{Kind: SizeGrow, Min: min, Max: max} }
 
-// Fixed returns a fixed sizing.
+// Fixed returns a fixed sizing. A size of 0 collapses the node, unlike a max of 0 in [Fit]
+// and [Grow].
 func Fixed(size Scalar) Sizing { return Sizing{Kind: SizeFixed, Min: size, Max: size} }
 
 // Percent returns a sizing relative to the parent's size.
 func Percent(p Scalar) Sizing { return Sizing{Kind: SizePercent, Percent: p} }
 
-// VAlign is the vertical alignment of children within a node. Their horizontal alignment is an [TextAlign].
-type VAlign uint8
+// AlignV is the vertical alignment of children within a node. Their horizontal alignment is an [AlignH].
+type AlignV uint8
 
 const (
-	AlignTop    VAlign = iota // top
+	AlignTop    AlignV = iota // top
 	AlignMiddle               // middle
 	AlignBottom               // bottom
 )
@@ -178,13 +188,18 @@ const (
 type Floating struct {
 	AttachTo AttachTo
 	// Node is the node to attach to when AttachTo is AttachNode. Layout engines identify it by its
-	// index ([Handle.Index]), so it must refer to a live node.
+	// index ([Handle.Index]), so it must refer to a live node. It may be anywhere in Order, before
+	// or after the floating node, but must be listed: the placement of a node attached to a node
+	// not laid out is up to the engine.
 	Node Handle
 	// Element is the point on the floating node placed on point Parent of the node it attaches to.
 	Element, Parent AttachPoint
 	Offset          Point
-	Expand          Size // Grows the floating node's box without affecting its children.
-	Z               int16
+	// Expand grows the floating node's box by Expand.W on its left and right and Expand.H on its
+	// top and bottom before its children are positioned. Children keep the size and alignment
+	// they have without it, offset from the grown box's corner.
+	Expand Size
+	Z      int16
 	// Clip clips the floating node to the clip rectangle of the node it attaches to.
 	Clip bool
 }
@@ -195,15 +210,18 @@ type LayoutStyle struct {
 	Width     Sizing
 	Height    Sizing
 	Padding   Insets
-	Gap       Scalar    // Space between children along Direction.
-	AlignX    TextAlign // Horizontal alignment of children.
-	AlignY    VAlign    // Vertical alignment of children.
+	Gap       Scalar // Space between children along Direction.
+	AlignX    AlignH // Horizontal alignment of children.
+	AlignY    AlignV // Vertical alignment of children.
 	// ClipX and ClipY clip children overflowing the node, making it a scroll container.
 	ClipX, ClipY bool
 	// Scroll offsets the children of a clipping node, i.e. its scroll position (usually negative).
-	Scroll      Point
-	Floating    Floating
-	AspectRatio Scalar // Width/height ratio, 0 for none.
+	Scroll   Point
+	Floating Floating
+	// AspectRatio is the width/height ratio, 0 for none. Once widths are sized it sets the
+	// height to width/AspectRatio, which also caps the height, and once heights are sized the
+	// width to AspectRatio×height. Floating nodes other than the root ignore it.
+	AspectRatio Scalar
 }
 
 // Span is a range of Len elements starting at Start, i.e. of bytes or lines.

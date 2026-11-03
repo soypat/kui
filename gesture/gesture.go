@@ -29,8 +29,8 @@ func KindOf(k kui.EventKind) (Kind, bool) {
 	return 0, false
 }
 
-// KindString returns the name of event kind k: a gesture kind's or [kui.EventKind.StringConst].
-func KindString(k kui.EventKind) string {
+// EventKindString returns the name of event kind k: a gesture kind's or [kui.EventKind.StringConst].
+func EventKindString(k kui.EventKind) string {
 	if g, ok := KindOf(k); ok {
 		return g.String()
 	}

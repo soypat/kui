@@ -55,7 +55,7 @@ func EventKindString(k kui.EventKind) string {
 	if e := eventkind(k); e >= evFocusIn && e < evEventExt0 {
 		return e.String()
 	}
-	return gesture.KindString(k)
+	return gesture.EventKindString(k)
 }
 
 // sensePress is the input that makes presses hit a node.
