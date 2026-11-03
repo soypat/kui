@@ -1,6 +1,6 @@
 package kui
 
-//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align,Direction,SizeKind,VAlign,AttachTo,AttachPoint -output=stringers.go
+//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align,Direction,SizeKind,VAlign,AttachTo,AttachPoint,DrawOp,Cursor,RequestKind -output=stringers.go
 
 import (
 	"github.com/soypat/kui/internal"
@@ -13,14 +13,21 @@ type EventReader interface {
 	// Drained times never decrease so it is the EventReader's responsability to order events written by [Event.Time].
 	// The text of drained events stays valid until the next Drain.
 	DrainEvents(dst []Event) int
-	// EventTextAppend appends the text of e, an event returned by the last Drain, to dst. Valid when [Event.Len]>0.
-	EventTextAppend(dst []byte, e *Event) []byte
+	// EventTextWrite writes the text of e, a text event returned by the last Drain, to dst and returns its length.
+	// Text that does not fit dst is dropped at a rune boundary, so dst[:n] holds whole runes.
+	EventTextWrite(dst []byte, e *Event) int
 }
 
 // EventWriter is the producer end of an event queue. A Writer has a single producer.
 type EventWriter interface {
 	// WriteEvents queues the longest prefix of src that fits and returns its length.
+	// It stops at the first event with text held elsewhere ([Event.IsString]).
 	WriteEvents(src []Event) int
+	// WriteTextEvent queues e, an [EventText] or [EventPreedit], with text as its text,
+	// after the events written before it. It sets e.Code and e.Len. It returns
+	// [ErrBufferFull] if no event fits and [ErrShortBuffer] if text does not fit.
+	// text is copied into the EventWriter, its reference is not held.
+	WriteTextEvent(e Event, text []byte) error
 }
 
 // Event is a single input event. It contains no pointers. Field meaning depends on Kind, see [EventKind].
