@@ -1,6 +1,6 @@
 package kui
 
-//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align -output=stringers.go
+//go:generate stringer -linecomment -type=EventKind,keymod,PointerButton,errGeneric,Key,Wrap,Align,Direction,SizeKind,VAlign,AttachTo,AttachPoint -output=stringers.go
 
 import (
 	"github.com/soypat/kui/internal"
@@ -26,6 +26,8 @@ type EventWriter interface {
 // Event is a single input event. It contains no pointers. Field meaning depends on Kind, see [EventKind].
 // Event defines raw device input before being processed by the UI. Event does not offer gesture/sense events.
 // These need to happen at the UI construction level since widgets define their interaction with gestures.
+// Routers, i.e. gesture recognizers and UI kernels, define the kinds of their events from [EventExt0] up,
+// usually on a type defined as Event. Routed events have Node set and positions relative to the node's box.
 type Event struct {
 	Time         int64         // Monotonic time of event in nanoseconds, arbitrary epoch.
 	Node         Handle        // Target node. Zero until the router resolves it.
@@ -62,8 +64,9 @@ func (e *Event) Resize() (w, h, scale float32) {
 
 // Coalesce checks if an incoming new event can be merged into a preexisting event e.
 // It returns true if the event was succesfully merged into e, in which case incoming may be discarded and replaced by e.
+// Events routed to different nodes are never merged.
 func (e *Event) Coalesce(incoming Event) (coalesced bool) {
-	if e.Kind == incoming.Kind && e.Source == incoming.Source && e.KeyMods == incoming.KeyMods {
+	if e.Kind == incoming.Kind && e.Node == incoming.Node && e.Source == incoming.Source && e.KeyMods == incoming.KeyMods {
 		switch e.Kind {
 		case EventPointerMove:
 			e.Time, e.X, e.Y = incoming.Time, incoming.X, incoming.Y

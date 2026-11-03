@@ -47,6 +47,13 @@ type Measurer interface {
 	Measure(s string, st *Style) (w, h float32)
 }
 
+// Line is a laid out line of a node's text, see [Tree].
+type Line struct {
+	Rect Rect
+	// Start and Len are the byte range of the line within the node's text.
+	Start, Len uint32
+}
+
 // Color is an alias of Go's standard library non-alpha-premultiplied 32-bit color [color.NRGBA].
 type Color = color.NRGBA
 
@@ -72,7 +79,8 @@ const (
 	WrapNone // none
 )
 
-// Align controls the horizontal alignment of wrapped lines within their box.
+// Align is a horizontal alignment: of wrapped lines within their box, and of children within a
+// node ([LayoutStyle.AlignX]).
 type Align uint8
 
 const (

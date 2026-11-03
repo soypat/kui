@@ -4,9 +4,10 @@ Package kui holds low-level types common to all UI implementations including:
   - node handles
   - font interfaces
   - event logic: keys, pointer, resize, lifecycle etc.
+  - layout: node styles, the [Tree] laid out and the [LayoutEngine] interface
 
-kui notably missing important logic which is implementation dependent such as layout engine, text
-processing implementations, event queue logic(SPSC or multi-threaded) and rendering.
+kui notably missing important logic which is implementation dependent such as layout engine
+implementations, text processing implementations, event queue logic(SPSC or multi-threaded) and rendering.
 */
 package kui
 
