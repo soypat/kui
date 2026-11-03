@@ -30,11 +30,11 @@ const (
 	DrawCustom // custom
 )
 
-// Radii holds corner radii in pixels: top left, top right, bottom left and bottom right.
-type Radii [4]uint16
+// DrawRadii holds corner radii in pixels: top left, top right, bottom left and bottom right.
+type DrawRadii [4]uint16
 
 // Radius returns a radius of r for all corners.
-func Radius(r uint16) Radii { return Radii{r, r, r, r} }
+func Radius(r uint16) DrawRadii { return DrawRadii{r, r, r, r} }
 
 // DrawBorders holds the border width of each side in pixels.
 type DrawBorders struct {
@@ -44,12 +44,11 @@ type DrawBorders struct {
 // DrawCmd is a single draw command. Its size is 44 bytes and it contains no pointers.
 // The meaning of A and B depends on Op; use the accessor methods.
 type DrawCmd struct {
-	Rect   Rect
-	Color  Color
-	Radius Radii
-	// Node is the node that generated the command, if any.
-	Node Handle
-	A, B uint32
+	Rect  Rect
+	Radii DrawRadii
+	Node  Handle // Node is the node that generated the command, if any.
+	A, B  uint32 // DrawOp specific fields.
+	Color Color
 	// Z is the layer of the command. Commands in a list are in ascending Z order.
 	Z     int16
 	Op    DrawOp
@@ -63,7 +62,7 @@ func (c *DrawCmd) BorderWidths() DrawBorders {
 
 // TextStyle returns the font, size, letter spacing and line height of a DrawText command.
 func (c *DrawCmd) TextStyle() (font, size, letterSpacing, lineHeight uint16) {
-	return c.Radius[0], c.Radius[1], c.Radius[2], c.Radius[3]
+	return c.Radii[0], c.Radii[1], c.Radii[2], c.Radii[3]
 }
 
 // LineWidth returns the stroke width of a DrawLine command.
@@ -198,14 +197,14 @@ func (l *DrawList) Add(c DrawCmd) {
 }
 
 // Rect adds a filled rectangle.
-func (l *DrawList) Rect(node Handle, r Rect, c Color, radius Radii) {
-	l.Add(DrawCmd{Op: DrawRect, Node: node, Rect: r, Color: c, Radius: radius})
+func (l *DrawList) Rect(node Handle, r Rect, c Color, radius DrawRadii) {
+	l.Add(DrawCmd{Op: DrawRect, Node: node, Rect: r, Color: c, Radii: radius})
 }
 
 // Border adds a border stroked inside r.
-func (l *DrawList) Border(node Handle, r Rect, c Color, w DrawBorders, radius Radii) {
+func (l *DrawList) Border(node Handle, r Rect, c Color, w DrawBorders, radius DrawRadii) {
 	a := uint32(w.Left) | uint32(w.Right)<<8 | uint32(w.Top)<<16 | uint32(w.Bottom)<<24
-	l.Add(DrawCmd{Op: DrawBorder, Node: node, Rect: r, Color: c, Radius: radius, A: a})
+	l.Add(DrawCmd{Op: DrawBorder, Node: node, Rect: r, Color: c, Radii: radius, A: a})
 }
 
 // Text adds a text command, copying s into the list's text arena.
@@ -219,15 +218,15 @@ func (l *DrawList) Text(node Handle, r Rect, c Color, s string, font, size, lett
 	off := len(l.text)
 	l.text = append(l.text, s...)
 	before := len(l.cmds)
-	l.Add(DrawCmd{Op: DrawText, Node: node, Rect: r, Color: c, A: uint32(off), B: uint32(len(s)), Radius: Radii{font, size, letterSpacing, lineHeight}})
+	l.Add(DrawCmd{Op: DrawText, Node: node, Rect: r, Color: c, A: uint32(off), B: uint32(len(s)), Radii: DrawRadii{font, size, letterSpacing, lineHeight}})
 	if len(l.cmds) == before {
 		l.text = l.text[:off] // Command dropped, release its text.
 	}
 }
 
 // Image adds an image command. image is a user defined identifier resolved by the painter.
-func (l *DrawList) Image(node Handle, r Rect, image uint32, tint Color, radius Radii) {
-	l.Add(DrawCmd{Op: DrawImage, Node: node, Rect: r, Color: tint, Radius: radius, A: image})
+func (l *DrawList) Image(node Handle, r Rect, image uint32, tint Color, radius DrawRadii) {
+	l.Add(DrawCmd{Op: DrawImage, Node: node, Rect: r, Color: tint, Radii: radius, A: image})
 }
 
 // PushClip intersects the clip rectangle with r until the matching PopClip.

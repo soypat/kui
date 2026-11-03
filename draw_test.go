@@ -19,7 +19,7 @@ func TestDrawListShortBufferNeed(t *testing.T) {
 	l.Rect(1, r, RGB(1, 2, 3), Radius(2))
 	l.Text(2, r, RGB(0, 0, 0), "hello", 1, 16, 0, 0)
 	l.Text(3, r, RGB(0, 0, 0), "world", 1, 16, 0, 0) // No room for text.
-	l.Border(4, r, RGB(9, 9, 9), DrawBorders{1, 2, 3, 4}, Radii{})
+	l.Border(4, r, RGB(9, 9, 9), DrawBorders{1, 2, 3, 4}, DrawRadii{})
 	if l.Err() != ErrShortBuffer {
 		t.Fatalf("want ErrShortBuffer, got %v", l.Err())
 	}
@@ -35,7 +35,7 @@ func TestDrawListShortBufferNeed(t *testing.T) {
 	l.Rect(1, r, RGB(1, 2, 3), Radius(2))
 	l.Text(2, r, RGB(0, 0, 0), "hello", 1, 16, 0, 0)
 	l.Text(3, r, RGB(0, 0, 0), "world", 1, 16, 2, 20)
-	l.Border(4, r, RGB(9, 9, 9), DrawBorders{1, 2, 3, 4}, Radii{})
+	l.Border(4, r, RGB(9, 9, 9), DrawBorders{1, 2, 3, 4}, DrawRadii{})
 	if l.Err() != nil || l.Len() != 4 {
 		t.Fatalf("after growing: err=%v len=%d", l.Err(), l.Len())
 	}
@@ -52,7 +52,7 @@ func TestDrawListMarkRewind(t *testing.T) {
 	var l DrawList
 	l.Reset(make([]DrawCmd, 0, 16), make([]byte, 0, 16))
 	r := Rect{W: 1, H: 1}
-	l.Rect(0, r, Color{}, Radii{})
+	l.Rect(0, r, Color{}, DrawRadii{})
 	l.PushClip(0, r)
 	m := l.Mark()
 	l.SetZ(3)
@@ -93,7 +93,7 @@ func TestDrawListCopyFrom(t *testing.T) {
 	var src DrawList
 	src.Reset(make([]DrawCmd, 0, 4), make([]byte, 0, 16))
 	src.Text(1, Rect{W: 10, H: 10}, RGB(1, 1, 1), "hello", 0, 13, 0, 0)
-	src.Rect(2, Rect{W: 5, H: 5}, RGB(2, 2, 2), Radii{})
+	src.Rect(2, Rect{W: 5, H: 5}, RGB(2, 2, 2), DrawRadii{})
 	var dst DrawList
 	dst.Reset(make([]DrawCmd, 0, 1), make([]byte, 0, 16))
 	if err := dst.CopyFrom(&src); err != ErrShortBuffer || dst.Len() != 0 {

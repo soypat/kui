@@ -11,3 +11,13 @@ kui has minimal logic, instead needing the user to plug in interfaces that are n
 - [EventWriter](./events.go): producer end of an event queue, written to by platform input drivers.
 - [EventReader](./events.go): consumer end of an event queue, drained by the UI to process input [Events](./events.go).
 - [EventBuilder](./events.go): Not an interface per-se, but it is the contact point with devices such as keyboards, touch pads and mice.
+
+
+## kui2go
+
+Package [`kui2go`](./kui2go/) contains implementations that are simple and straightforward enough to be provided inside of kui.
+- [kui2go.EventSPSC](./kui2go/event-spsc.go): Single-Producer/Single-Consumer event queue, implements EventWriter and EventReader.
+- [kuiscene.Scene](./kui2go/kuiscene/scene.go): retained node tree with layout, hit testing, gesture routing, focus, timers, scrolling, text editing and painting.
+
+## gesture
+Package [`gesture`](./gesture/) contains gesture processing logic. Omitted from `kui` since its processing is
