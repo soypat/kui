@@ -16,7 +16,7 @@ type LayoutEngine interface {
 }
 
 // Tree is a node tree for a [LayoutEngine] to lay out, held in parallel slices. Every slice but
-// Order is indexed by node, so a UI kernel storing its nodes in columns passes them as they are.
+// Order is indexed by node, so a UI scene storing its nodes in columns passes them as they are.
 //
 // Order lists the nodes to lay out in pre-order: engines size bottom up by iterating it
 // backwards and position top down by iterating it forwards. Subtree gives the tree's shape: the

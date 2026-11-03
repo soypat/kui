@@ -10,7 +10,7 @@ import (
 
 //go:generate stringer -type=eventkind -linecomment -output=eventkind_string.go
 
-// Event kinds of the kernel and of kinds, numbered from [gesture.EventExt0]. Nodes also receive,
+// Event kinds of the scene and of kinds, numbered from [gesture.EventExt0]. Nodes also receive,
 // as [WidgetEvent]s:
 //   - The gestures of package [gesture] (Press, Tap, DoubleTap, LongPress, Drag*, Hover*...),
 //     routed by hit testing to nodes sensing them, see [KindSpec.Sense].
@@ -32,7 +32,7 @@ const (
 	// EventTimer is a timer set with [Scene.SetTimer] firing. Code is the timer's code.
 	EventTimer = kui.EventKind(evTimer)
 	// EventDismiss asks the active modal node (see [FlagModal]) to close: the user pressed
-	// outside it or pressed Escape. The kernel does not hide the node itself.
+	// outside it or pressed Escape. The scene does not hide the node itself.
 	EventDismiss = kui.EventKind(evDismiss)
 	// EventExt0 is the start of application defined event kinds, emitted with [Scene.Emit].
 	EventExt0 = kui.EventKind(evEventExt0)
@@ -50,7 +50,7 @@ const (
 	evEventExt0
 )
 
-// KindString returns the name of event kind k: a kernel kind's or [gesture.KindString].
+// KindString returns the name of event kind k: a scene kind's or [gesture.KindString].
 func KindString(k kui.EventKind) string {
 	if e := eventkind(k); e >= evFocusIn && e < evEventExt0 {
 		return e.String()
@@ -75,26 +75,26 @@ func (e *WidgetEvent) Gesture() (gesture.Kind, bool) { return gesture.KindOf(e.K
 // Emit appends an event to the output of the current Step. Its Reduce is called after those of
 // the events already emitted. Events emitted outside Step are delivered with the next Step.
 // Events are dropped if the event buffer is full; see [Scene.DroppedEvents].
-func (k *Scene) Emit(e WidgetEvent) {
-	if len(k.m.events) == cap(k.m.events) {
-		k.dropped++
+func (scene *Scene) Emit(e WidgetEvent) {
+	if len(scene.mem.events) == cap(scene.mem.events) {
+		scene.dropped++
 		return
 	}
 	if e.Time == 0 {
-		e.Time = k.now
+		e.Time = scene.now
 	}
-	k.m.events = append(k.m.events, e)
+	scene.mem.events = append(scene.mem.events, e)
 }
 
 // Events returns the events produced by the last Step. Valid until the next Step.
-func (k *Scene) Events() []WidgetEvent { return k.m.events[:k.stepEnd] }
+func (scene *Scene) Events() []WidgetEvent { return scene.mem.events[:scene.stepEnd] }
 
 // Request queues a request to the host. text, if not empty, is copied to the buffer returned by
 // [Scene.Requests] and located by the request's Text. Requests made outside Step are delivered
 // with the next Step. It returns [kui.ErrBufferFull] if [MemoryConfig.MaxRequests] requests are
 // queued and [kui.ErrShortBuffer] if text does not fit [MemoryConfig.RequestTextBytes].
-func (k *Scene) Request(r kui.Request, text string) error {
-	m := k.m
+func (scene *Scene) Request(r kui.Request, text string) error {
+	m := scene.mem
 	if len(m.reqs) == cap(m.reqs) {
 		return kui.ErrBufferFull
 	} else if len(text) > cap(m.reqText)-len(m.reqText) {
@@ -108,31 +108,31 @@ func (k *Scene) Request(r kui.Request, text string) error {
 
 // Requests returns the host requests produced by the last Step and the buffer holding their
 // text ([kui.Request.Text]). Both are valid until the next Step.
-func (k *Scene) Requests() (reqs []kui.Request, text []byte) {
-	return k.m.reqs[:k.reqEnd], k.m.reqText
+func (scene *Scene) Requests() (reqs []kui.Request, text []byte) {
+	return scene.mem.reqs[:scene.reqEnd], scene.mem.reqText
 }
 
 // RequestText returns the text of request r. Valid until the next Step.
-func (k *Scene) RequestText(r *kui.Request) string {
-	if r.Text.Len == 0 || r.Text.End() > uint32(len(k.m.reqText)) {
+func (scene *Scene) RequestText(r *kui.Request) string {
+	if r.Text.Len == 0 || r.Text.End() > uint32(len(scene.mem.reqText)) {
 		return ""
 	}
-	return unsafe.String(&k.m.reqText[r.Text.Start], int(r.Text.Len))
+	return unsafe.String(&scene.mem.reqText[r.Text.Start], int(r.Text.Len))
 }
 
 // EventText writes the text of a [kui.EventText] or [kui.EventPreedit] event to dst and returns
 // its length. Text that does not fit dst is dropped at a rune boundary. Single rune events are
 // decoded directly; longer text is read from the Step's [TextSource].
-func (k *Scene) EventText(dst []byte, e *WidgetEvent) int {
+func (scene *Scene) EventText(dst []byte, e *WidgetEvent) int {
 	switch r := rune(e.Code); {
 	case e.Kind != kui.EventText && e.Kind != kui.EventPreedit:
 		return 0
 	case e.Len == 0 && utf8.RuneLen(r) > 0 && utf8.RuneLen(r) <= len(dst) && r != 0:
 		return utf8.EncodeRune(dst, r)
-	case e.Len == 0 || k.textSrc == nil:
+	case e.Len == 0 || scene.textSrc == nil:
 		return 0
 	}
-	return k.textSrc.EventTextWrite(dst, e.KuiEvent())
+	return scene.textSrc.EventTextWrite(dst, e.KuiEvent())
 }
 
 // hitIndex holds the hit testable boxes of a layout in paint order, as parallel arrays.
@@ -177,10 +177,10 @@ func (h *hitIndex) query(x, y float32, sense gesture.Sense) int32 {
 
 // HitTest returns the topmost node at p sensing any of sense, or zero. Nodes with [FlagScroll]
 // sense [gesture.SenseScroll].
-func (k *Scene) HitTest(p kui.Point, sense gesture.Sense) kui.Handle {
-	k.ensureLayout()
-	if i := k.m.hits.query(p.X, p.Y, sense); i >= 0 {
-		return k.handle(i)
+func (scene *Scene) HitTest(p kui.Point, sense gesture.Sense) kui.Handle {
+	scene.ensureLayout()
+	if i := scene.mem.hits.query(p.X, p.Y, sense); i >= 0 {
+		return scene.handle(i)
 	}
 	return 0
 }

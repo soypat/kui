@@ -7,19 +7,19 @@ import (
 
 // Layout recomputes the layout if the tree changed. It is called automatically by Step,
 // Paint and HitTest; calling it directly is only needed to query boxes after modifying the tree.
-func (k *Scene) Layout() error {
-	k.ensureLayout()
-	return k.layoutErr
+func (scene *Scene) Layout() error {
+	scene.ensureLayout()
+	return scene.layoutErr
 }
 
-func (k *Scene) ensureLayout() {
-	if !k.needLayout {
+func (scene *Scene) ensureLayout() {
+	if !scene.needLayout {
 		return
 	}
-	k.needLayout = false
-	k.needPaint = true
-	k.layoutErr = k.replay()
-	k.computeGeometry()
+	scene.needLayout = false
+	scene.needPaint = true
+	scene.layoutErr = scene.replay()
+	scene.computeGeometry()
 }
 
 func clips(s *kui.LayoutStyle) bool { return s.ClipX || s.ClipY }
@@ -28,13 +28,13 @@ func floating(s *kui.LayoutStyle) bool { return s.Floating.AttachTo != kui.Attac
 
 // replay lists the visible tree in pre-order for the layout engine, lays it out and collects
 // the paint roots: the root node and floating nodes, stable sorted by z.
-func (k *Scene) replay() error {
-	m := k.m
+func (scene *Scene) replay() error {
+	m := scene.mem
 	t := &m.tree
 	t.Order = t.Order[:0]
 	t.TextBytes = m.arena
-	m.roots = append(m.roots[:0], root{node: k.root})
-	stack := append(m.stack[:0], k.root)
+	m.roots = append(m.roots[:0], root{node: scene.root})
+	stack := append(m.stack[:0], scene.root)
 	for len(stack) > 0 {
 		v := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
@@ -44,7 +44,7 @@ func (k *Scene) replay() error {
 			continue
 		}
 		style := &m.style[v]
-		if f := &style.Floating; f.AttachTo == kui.AttachNode && !k.Valid(f.Node) {
+		if f := &style.Floating; f.AttachTo == kui.AttachNode && !scene.Valid(f.Node) {
 			continue // Attached to a removed node, whose index may now be another node's.
 		}
 		t.Subtree[v] = int32(len(t.Order))
@@ -54,7 +54,7 @@ func (k *Scene) replay() error {
 		if sp.len > 0 {
 			t.TextStyle[v] = m.visual[v].Text
 		}
-		if v != k.root && floating(style) && len(m.roots) < cap(m.roots) {
+		if v != scene.root && floating(style) && len(m.roots) < cap(m.roots) {
 			m.roots = append(m.roots, root{node: v, z: style.Floating.Z})
 		}
 		stack = append(stack, ^v)
@@ -64,7 +64,7 @@ func (k *Scene) replay() error {
 			}
 		}
 	}
-	err := k.engine.Layout(t, k.viewport)
+	err := scene.engine.Layout(t, scene.viewport)
 	// Stable sort roots by z.
 	roots := m.roots
 	for i := 1; i < len(roots); i++ {
@@ -76,43 +76,43 @@ func (k *Scene) replay() error {
 }
 
 // childClip returns the clip rectangle node i imposes on its children.
-func (k *Scene) childClip(i int32) kui.Rect {
-	if clips(&k.m.style[i]) {
-		return k.m.clip[i].Intersect(k.m.box[i])
+func (scene *Scene) childClip(i int32) kui.Rect {
+	if clips(&scene.mem.style[i]) {
+		return scene.mem.clip[i].Intersect(scene.mem.box[i])
 	}
-	return k.m.clip[i]
+	return scene.mem.clip[i]
 }
 
-func (k *Scene) computeGeometry() {
-	m := k.m
-	viewport := kui.Rect{W: k.viewport.W, H: k.viewport.H}
+func (scene *Scene) computeGeometry() {
+	m := scene.mem
+	viewport := kui.Rect{W: scene.viewport.W, H: scene.viewport.H}
 	// Clip rectangles in pre-order, so parents' are known.
 	for _, i := range m.tree.Order {
 		style := &m.style[i]
 		p := m.links[i].parent
 		switch {
-		case i == k.root:
+		case i == scene.root:
 			m.clip[i] = viewport
 		case floating(style):
 			m.clip[i] = viewport
 			if style.Floating.Clip {
 				switch style.Floating.AttachTo {
 				case kui.AttachParent:
-					m.clip[i] = k.childClip(p)
+					m.clip[i] = scene.childClip(p)
 				case kui.AttachNode:
-					if t, err := k.resolve(style.Floating.Node); err == nil {
+					if t, err := scene.resolve(style.Floating.Node); err == nil {
 						m.clip[i] = m.clip[t]
 					}
 				}
 			}
 		default:
-			m.clip[i] = k.childClip(p)
+			m.clip[i] = scene.childClip(p)
 		}
 	}
 	// Hit index in paint order. The last modal node visited becomes the active one.
 	hits := &m.hits
 	hits.n = 0
-	k.modal = -1
+	scene.modal = -1
 	focusable := false
 	stack := m.stack[:0]
 	for _, r := range m.roots {
@@ -125,10 +125,10 @@ func (k *Scene) computeGeometry() {
 				continue // Disabled subtrees receive no input.
 			}
 			if f&FlagModal != 0 {
-				k.modal = i
+				scene.modal = i
 			}
-			focusable = focusable || k.focus == k.handle(i)
-			sense := k.kinds[m.kind[i]].Sense
+			focusable = focusable || scene.focus == scene.handle(i)
+			sense := scene.kinds[m.kind[i]].Sense
 			if f&FlagScroll != 0 {
 				sense |= gesture.SenseScroll
 			}
@@ -144,41 +144,41 @@ func (k *Scene) computeGeometry() {
 	}
 	// Focus can only stay on nodes that can receive input: not under a hidden or disabled
 	// ancestor, nor outside the modal node.
-	if f, err := k.resolve(k.focus); err == nil && (!focusable || !k.inModal(f)) {
-		k.changeFocus(0)
+	if f, err := scene.resolve(scene.focus); err == nil && (!focusable || !scene.inModal(f)) {
+		scene.changeFocus(0)
 	}
 }
 
 // Paint appends the draw commands of the UI to l, laying it out first if needed.
 // It returns l's error, i.e. [kui.ErrShortBuffer] if l's buffers were too small.
-func (k *Scene) Paint(l *kui.DrawList) error {
-	k.ensureLayout()
-	m := k.m
+func (scene *Scene) Paint(l *kui.DrawList) error {
+	scene.ensureLayout()
+	m := scene.mem
 	for _, r := range m.roots {
 		l.SetZ(r.z)
-		rootClipped := r.node != k.root && m.style[r.node].Floating.Clip
+		rootClipped := r.node != scene.root && m.style[r.node].Floating.Clip
 		if rootClipped {
-			l.PushClip(k.handle(r.node), m.clip[r.node])
+			l.PushClip(scene.handle(r.node), m.clip[r.node])
 		}
 		stack := append(m.stack[:0], r.node)
 		for len(stack) > 0 {
 			v := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
 			if v < 0 { // Exit node.
-				k.paintExit(^v, l)
+				scene.paintExit(^v, l)
 				continue
 			}
 			i := v
 			isClip := clips(&m.style[i])
-			if k.visible(i) {
+			if scene.visible(i) {
 				if isClip {
-					l.PushClip(k.handle(i), m.box[i])
+					l.PushClip(scene.handle(i), m.box[i])
 				}
-				h := k.handle(i)
-				if paint := k.kinds[m.kind[i]].Paint; paint != nil {
-					paint(k, h, l)
+				h := scene.handle(i)
+				if paint := scene.kinds[m.kind[i]].Paint; paint != nil {
+					paint(scene, h, l)
 				} else {
-					k.PaintBox(h, l)
+					scene.PaintBox(h, l)
 				}
 			} else if isClip {
 				continue // Node and all its children are clipped away.
@@ -191,26 +191,26 @@ func (k *Scene) Paint(l *kui.DrawList) error {
 			}
 		}
 		if rootClipped {
-			l.PopClip(k.handle(r.node))
+			l.PopClip(scene.handle(r.node))
 		}
 	}
 	l.SetZ(0)
-	k.needPaint = false
+	scene.needPaint = false
 	return l.Err()
 }
 
 // paintExit draws what goes over node i's children.
-func (k *Scene) paintExit(i int32, l *kui.DrawList) {
-	m := k.m
-	h := k.handle(i)
+func (scene *Scene) paintExit(i int32, l *kui.DrawList) {
+	m := scene.mem
+	h := scene.handle(i)
 	if clips(&m.style[i]) {
 		l.PopClip(h)
 	}
-	if !k.visible(i) {
+	if !scene.visible(i) {
 		return
 	}
-	if after := k.kinds[m.kind[i]].PaintAfter; after != nil {
-		after(k, h, l)
+	if after := scene.kinds[m.kind[i]].PaintAfter; after != nil {
+		after(scene, h, l)
 	}
 	vis := &m.visual[i]
 	if vis.Border != (kui.DrawBorders{}) && vis.BorderColor.A > 0 {
@@ -219,30 +219,32 @@ func (k *Scene) paintExit(i int32, l *kui.DrawList) {
 }
 
 // visible reports whether some of node i's box is inside its clip rectangle.
-func (k *Scene) visible(i int32) bool { return !k.m.box[i].Intersect(k.m.clip[i]).Empty() }
+func (scene *Scene) visible(i int32) bool {
+	return !scene.mem.box[i].Intersect(scene.mem.clip[i]).Empty()
+}
 
 // PaintBox draws node n's background and text. It is the default painter of kinds without one.
-func (k *Scene) PaintBox(n kui.Handle, l *kui.DrawList) {
-	i, err := k.resolve(n)
+func (scene *Scene) PaintBox(n kui.Handle, l *kui.DrawList) {
+	i, err := scene.resolve(n)
 	if err != nil {
 		return
 	}
-	vis := &k.m.visual[i]
+	vis := &scene.mem.visual[i]
 	if vis.Background.A > 0 {
-		l.Rect(n, k.m.box[i], vis.Background, vis.Radius)
+		l.Rect(n, scene.mem.box[i], vis.Background, vis.Radius)
 	}
-	k.PaintText(n, l, vis.Text.Color)
+	scene.PaintText(n, l, vis.Text.Color)
 }
 
 // PaintText draws the text of node n with the given color.
-func (k *Scene) PaintText(n kui.Handle, l *kui.DrawList, c kui.Color) {
-	i, err := k.resolve(n)
-	if err != nil || k.m.text[i].len == 0 {
+func (scene *Scene) PaintText(n kui.Handle, l *kui.DrawList, c kui.Color) {
+	i, err := scene.resolve(n)
+	if err != nil || scene.mem.text[i].len == 0 {
 		return
 	}
-	s := k.textOf(i)
-	st := &k.m.visual[i].Text
-	for _, line := range k.m.tree.NodeLines(int(i)) {
+	s := scene.textOf(i)
+	st := &scene.mem.visual[i].Text
+	for _, line := range scene.mem.tree.NodeLines(int(i)) {
 		end := line.Start + line.Len
 		if end > uint32(len(s)) {
 			continue

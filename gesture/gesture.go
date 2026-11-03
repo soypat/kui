@@ -97,7 +97,7 @@ const (
 	HoverIn   = kui.EventKind(evHoverIn)
 	HoverMove = kui.EventKind(evHoverMove)
 	HoverOut  = kui.EventKind(evHoverOut)
-	// EventExt0 is the start of the event kinds of routers built on gestures, i.e. UI kernels.
+	// EventExt0 is the start of the event kinds of routers built on gestures, i.e. UI scene.
 	EventExt0 = kui.EventKind(evEventExt0)
 )
 

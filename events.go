@@ -33,7 +33,7 @@ type EventWriter interface {
 // Event is a single input event. It contains no pointers. Field meaning depends on Kind, see [EventKind].
 // Event defines raw device input before being processed by the UI. Event does not offer gesture/sense events.
 // These need to happen at the UI construction level since widgets define their interaction with gestures.
-// Routers, i.e. gesture recognizers and UI kernels, define the kinds of their events from [EventExt0] up,
+// Routers, i.e. gesture recognizers and UI scene, define the kinds of their events from [EventExt0] up,
 // usually on a type defined as Event. Routed events have Node set and positions relative to the node's box.
 type Event struct {
 	Time         int64         // Monotonic time of event in nanoseconds, arbitrary epoch.

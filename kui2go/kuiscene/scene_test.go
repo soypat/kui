@@ -507,14 +507,14 @@ func TestDeterministicReplay(t *testing.T) {
 	ev1, cmd1 := script(t, data)
 	ev2, cmd2 := script(t, data)
 	if !slices.Equal(ev1, ev2) || !slices.Equal(cmd1, cmd2) {
-		t.Fatal("kernel is not deterministic")
+		t.Fatal("scene is not deterministic")
 	}
 	if len(ev1) == 0 || len(cmd1) == 0 {
 		t.Fatal("script produced no output")
 	}
 }
 
-func FuzzKernelStep(f *testing.F) {
+func FuzzSceneStep(f *testing.F) {
 	f.Add([]byte{1, 30, 15, 1, 2, 30, 15, 1})
 	f.Add([]byte{3, 20, 120, 5, 7, 1, 3, 1, 4, 0x2B, 0, 1})
 	f.Fuzz(func(t *testing.T, data []byte) {
@@ -529,10 +529,10 @@ func TestKindString(t *testing.T) {
 		}
 	}
 	if EventFocusIn != gesture.EventExt0 || EventExt0 != EventDismiss+1 {
-		t.Error("kernel kinds overlap others")
+		t.Error("scene kinds overlap others")
 	}
 	if KindString(gesture.Tap) != gesture.KindString(gesture.Tap) || KindString(EventExt0) != EventExt0.StringConst() {
-		t.Error("KindString of a kind not of the kernel")
+		t.Error("KindString of a kind not of the scene")
 	}
 	if s := (kindList{gesture.Press, EventFocusIn, kui.EventKeyDown}).String(); s != "[press focus in keydown]" {
 		t.Error("kind list:", s)
