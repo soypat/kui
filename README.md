@@ -12,6 +12,13 @@ kui has minimal logic, instead needing the user to plug in interfaces that are n
 - [EventReader](./events.go): consumer end of an event queue, drained by the UI to process input [Events](./events.go).
 - [EventBuilder](./events.go): Not an interface per-se, but it is the contact point with devices such as keyboards, touch pads and mice.
 
+## cogent-core example
+```
+cd bindings/multi/kuicogent/examples/window
+go run .
+```
+![kui on cogent core](https://private-user-images.githubusercontent.com/26156425/694302119-60ce6ffe-6e9b-4494-9955-372caac2ce68.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3OTM3NjM0OTYsIm5iZiI6MTc5Mzc2MzE5NiwicGF0aCI6Ii8yNjE1NjQyNS82OTQzMDIxMTktNjBjZTZmZmUtNmU5Yi00NDk0LTk5NTUtMzcyY2FhYzJjZTY4LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjExMDQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYxMTA0VDAzMzMxNlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWE2ZDFhNTExYWQ1OThlMGY3ZmVhZDkxYzBjMjk2MmYyNTEzNzljNjdiNDVlMmFiMWVkNzQyNDQ0YmY0ZDA3MDMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JnJlc3BvbnNlLWNvbnRlbnQtdHlwZT1pbWFnZSUyRnBuZyJ9.AzBwcrWcq8d3pJebDf0MEoU0UjgMTt0eRJDB_d6VYMA)
+
 
 ## kui2go
 
