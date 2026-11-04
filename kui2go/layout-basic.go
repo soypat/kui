@@ -100,7 +100,7 @@ func (e *LayoutBasic) Layout(t *kui.Tree, viewport kui.Size) error {
 	// Like clay, aspect ratios scale nodes laid out in a flow, not floating ones.
 	for p, n := range t.Order {
 		if ar := t.Style[n].AspectRatio; ar != 0 && (p == 0 || !floating(&t.Style[n])) {
-			t.Box[n].H = t.Box[n].W / ar
+			t.Box[n].H = (1 / ar) * t.Box[n].W // Rounded as clay does: W/ar can differ in its last bit.
 			e.nodes[n].aspectMax, e.nodes[n].capped = t.Box[n].H, true
 		}
 	}
@@ -701,9 +701,11 @@ func (e *LayoutBasic) propagateHeights(t *kui.Tree) {
 			continue
 		}
 		s := &t.Style[n]
-		lo, hi := s.Height.Min, s.Height.Max // A percentage, sized later, has a maximum of 0.
-		if s.Height.Kind != kui.SizePercent {
-			hi = maxSize(s.Height)
+		lo, hi := s.Height.Min, maxSize(s.Height)
+		if s.Height.Kind == kui.SizePercent {
+			// Clay holds a percentage where it holds a minimum, with a maximum of 0: the height
+			// is sized later, but an aspect ratio's cap makes the percentage a minimum in pixels.
+			lo, hi = s.Height.Percent, 0
 		}
 		if e.nodes[n].capped {
 			hi = e.nodes[n].aspectMax
