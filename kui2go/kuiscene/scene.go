@@ -41,7 +41,8 @@ const (
 	// FlagFocusable makes the node reachable by keyboard focus traversal.
 	FlagFocusable
 	// FlagScrollable makes the scene scroll the node in response to scroll events by adjusting its
-	// [kui.LayoutStyle.Scroll], clamped to its content. The node should clip (ClipX or ClipY).
+	// [kui.LayoutStyle.Scroll], clamped to its content, also when layouts change its content or
+	// size. The node should clip (ClipX or ClipY).
 	FlagScrollable
 	// FlagModal makes the node capture input while it is visible, i.e. a popup or dialog. Pointer
 	// input outside its subtree is discarded, focus traversal stays inside it, and pressing
@@ -239,6 +240,7 @@ type Scene struct {
 	focus      kui.Handle
 	needLayout bool
 	needPaint  bool
+	stepping   bool // Inside Step.
 	now        int64
 	textSrc    TextSource
 	builder    Builder
@@ -735,8 +737,10 @@ func (scene *Scene) compactArena() {
 // Focus returns the focused node, or zero.
 func (scene *Scene) Focus() kui.Handle { return scene.focus }
 
-// SetFocus focuses node h, which must be focusable. A zero h clears focus.
-// FocusOut and FocusIn events are emitted on the next Step.
+// SetFocus focuses node h, which must be focusable and able to receive input: neither it nor
+// its ancestors hidden or disabled, and inside the active modal node if any, laying out the
+// tree first if it changed. A zero h clears focus. FocusOut and FocusIn events are emitted on
+// the next Step.
 func (scene *Scene) SetFocus(h kui.Handle) error {
 	if h.IsZero() {
 		scene.changeFocus(0)
@@ -745,11 +749,25 @@ func (scene *Scene) SetFocus(h kui.Handle) error {
 	i, err := scene.resolve(h)
 	if err != nil {
 		return err
-	} else if scene.mem.flags[i]&(FlagFocusable|FlagDisabled|FlagHidden) != FlagFocusable {
+	}
+	scene.ensureLayout() // For the active modal node.
+	if scene.mem.flags[i]&FlagFocusable == 0 || !scene.receivesInput(i) {
 		return kui.ErrInvalidHandle
 	}
 	scene.changeFocus(h)
 	return nil
+}
+
+// receivesInput reports whether node i can receive input: neither it nor its ancestors are
+// hidden or disabled, and it is inside the active modal node if any.
+func (scene *Scene) receivesInput(i int32) bool {
+	m := scene.mem
+	for j := i; j >= 0; j = m.links[j].parent {
+		if m.flags[j]&(FlagHidden|FlagDisabled) != 0 {
+			return false
+		}
+	}
+	return scene.inModal(i)
 }
 
 // Builder returns the scene's builder. See [Builder].

@@ -24,7 +24,7 @@ const (
 	nodes  = 7
 )
 
-// newLayoutTree returns the tree of glaylayout's tests, whose results come from clay.
+// newLayoutTree returns the tree of kuiglay's tests (bindings/layout/kuiglay), whose results come from clay.
 func newLayoutTree() *kui.Tree {
 	t := &kui.Tree{
 		// root: header (label), scroll, popup.

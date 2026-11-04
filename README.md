@@ -17,7 +17,19 @@ kui has minimal logic, instead needing the user to plug in interfaces that are n
 
 Package [`kui2go`](./kui2go/) contains implementations that are simple and straightforward enough to be provided inside of kui.
 - [kui2go.EventSPSC](./kui2go/event-spsc.go): Single-Producer/Single-Consumer event queue, implements EventWriter and EventReader.
+- [kui2go.TextFaces](./kui2go/text-faces.go): Measurer over FontFaces indexed by font, measuring with the advances painters draw with.
 - [kuiscene.Scene](./kui2go/kuiscene/scene.go): retained node tree with layout, hit testing, gesture routing, focus, timers, scrolling, text editing and painting.
+
+## bindings
+
+Module [`bindings`](./bindings/) adapts third party libraries to kui's interfaces, depending only on kui. See README in directory.
 
 ## gesture
 Package [`gesture`](./gesture/) contains gesture processing logic. Omitted from `kui` since its processing is
+
+## Fuzzing
+```
+go test ./kui2go/kuiscene -run TestWidgetLaws -states 20000 -seed 7
+go test ./kui2go -run TestLayoutBasicRandom -trees 50000
+go test ./kui2go/kuiscene -fuzz FuzzWidgets -fuzztime 60s
+```

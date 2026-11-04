@@ -19,7 +19,34 @@ func (scene *Scene) ensureLayout() {
 	scene.needLayout = false
 	scene.needPaint = true
 	scene.layoutErr = scene.replay()
+	if scene.layoutErr == nil && scene.clampScrolls() {
+		// Content shrank or its container grew past the scroll offset: lay out again so the
+		// content stays in view, as if scrolled back with ScrollBy.
+		scene.layoutErr = scene.replay()
+	}
 	scene.computeGeometry()
+}
+
+// clampScrolls clamps the scroll offsets of the laid out [FlagScrollable] nodes to their
+// content, reporting whether any changed.
+func (scene *Scene) clampScrolls() bool {
+	m := scene.mem
+	changed := false
+	for _, i := range m.tree.Order {
+		if m.flags[i]&FlagScrollable == 0 {
+			continue
+		}
+		style, content, box := &m.style[i], m.tree.Content[i], m.box[i]
+		prev := style.Scroll
+		if style.ClipX {
+			style.Scroll.X = clampScroll(style.Scroll.X, content.W-box.W)
+		}
+		if style.ClipY {
+			style.Scroll.Y = clampScroll(style.Scroll.Y, content.H-box.H)
+		}
+		changed = changed || style.Scroll != prev
+	}
+	return changed
 }
 
 func clips(s *kui.LayoutStyle) bool { return s.ClipX || s.ClipY }
@@ -116,6 +143,9 @@ func (scene *Scene) computeGeometry() {
 	focusable := false
 	stack := m.stack[:0]
 	for _, r := range m.roots {
+		if scene.disabledAbove(r.node) {
+			continue // A floating subtree is disabled with its ancestors.
+		}
 		stack = append(stack[:0], r.node)
 		for len(stack) > 0 {
 			i := stack[len(stack)-1]
@@ -147,6 +177,17 @@ func (scene *Scene) computeGeometry() {
 	if f, err := scene.resolve(scene.focus); err == nil && (!focusable || !scene.inModal(f)) {
 		scene.changeFocus(0)
 	}
+}
+
+// disabledAbove reports whether an ancestor of node i is disabled.
+func (scene *Scene) disabledAbove(i int32) bool {
+	m := scene.mem
+	for j := m.links[i].parent; j >= 0; j = m.links[j].parent {
+		if m.flags[j]&FlagDisabled != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // Paint appends the draw commands of the UI to l, laying it out first if needed.

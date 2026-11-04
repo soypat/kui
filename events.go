@@ -285,6 +285,7 @@ func (km KeyMods) AppendString(dst []byte) []byte {
 			appended = true
 		}
 		km >>= 1
+		i++
 	}
 	return dst
 }

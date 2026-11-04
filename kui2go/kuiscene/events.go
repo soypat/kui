@@ -74,13 +74,14 @@ func (e *NodeEvent) Gesture() (gesture.Kind, bool) { return gesture.KindOf(e.Kin
 
 // Emit appends an event to the output of the current Step. Its Reduce is called after those of
 // the events already emitted. Events emitted outside Step are delivered with the next Step.
+// Events without a Time take the time of the Step delivering them.
 // Events are dropped if the event buffer is full; see [Scene.DroppedEvents].
 func (scene *Scene) Emit(e NodeEvent) {
 	if len(scene.mem.events) == cap(scene.mem.events) {
 		scene.dropped++
 		return
 	}
-	if e.Time == 0 {
+	if e.Time == 0 && scene.stepping {
 		e.Time = scene.now
 	}
 	scene.mem.events = append(scene.mem.events, e)

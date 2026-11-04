@@ -13,9 +13,15 @@ import (
 func (scene *Scene) Step(now int64, events []kui.Event, text TextSource) error {
 	scene.now = now
 	scene.textSrc = text
+	scene.stepping = true
 	m := scene.mem
 	// Keep events and requests added since the last Step, dropping those already delivered.
 	m.events = m.events[:copy(m.events, m.events[scene.stepEnd:])]
+	for i := range m.events {
+		if m.events[i].Time == 0 {
+			m.events[i].Time = now // Emitted outside Step: happens now.
+		}
+	}
 	m.reqs = m.reqs[:copy(m.reqs, m.reqs[scene.reqEnd:])]
 	if len(m.reqs) == 0 {
 		m.reqText = m.reqText[:0]
@@ -38,6 +44,7 @@ func (scene *Scene) Step(now int64, events []kui.Event, text TextSource) error {
 	scene.ensureLayout()
 	scene.stepEnd = len(m.events)
 	scene.reqEnd = len(m.reqs)
+	scene.stepping = false
 	return scene.layoutErr
 }
 
@@ -178,6 +185,10 @@ func (scene *Scene) deliver(g *gesture.Event) {
 		return
 	} else if err != nil {
 		return // The node was removed during the gesture.
+	} else if !scene.receivesInput(i) && g.Kind != gesture.Release && g.Kind != gesture.DragEnd && g.Kind != gesture.HoverOut {
+		// The node was hidden or disabled during the gesture, or a modal node shown: it only
+		// learns that the gesture ended.
+		return
 	}
 	switch g.Kind {
 	case gesture.DragStart, gesture.Drag, gesture.DragEnd:

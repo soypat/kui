@@ -403,15 +403,17 @@ func TestStepPaintAllocs(t *testing.T) {
 	}
 }
 
-// script runs a deterministic sequence of events and returns all widget events and paint commands.
-func script(t testing.TB, data []byte) ([]NodeEvent, []kui.DrawCmd) {
+// script runs a deterministic sequence of events starting at time base and returns all widget
+// events and paint commands.
+func script(t testing.TB, base int64, data []byte) ([]NodeEvent, []kui.DrawCmd) {
 	f := newFixture(t)
 	modal, _ := f.addModal(t)
-	var l kui.DrawList
+	var l, again kui.DrawList
 	l.Reset(make([]kui.DrawCmd, 0, 256), make([]byte, 0, 1024))
+	again.Reset(make([]kui.DrawCmd, 0, 256), make([]byte, 0, 1024))
 	var all []NodeEvent
 	var cmds []kui.DrawCmd
-	now := int64(0)
+	now := base
 	for i := 0; i+4 <= len(data); i += 4 {
 		b := data[i : i+4]
 		now += int64(b[3]) * 10 * ms
@@ -461,39 +463,25 @@ func script(t testing.TB, data []byte) ([]NodeEvent, []kui.DrawCmd) {
 		}
 		cmds = append(cmds, l.Cmds()...)
 		checkInvariants(t, f, &l)
+		// Laying out and painting an unchanged scene again gives the same frame.
+		if err := f.k.Layout(); err != nil {
+			t.Fatal(err)
+		}
+		again.Clear()
+		if err := f.k.Paint(&again); err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(l.Cmds(), again.Cmds()) {
+			t.Fatalf("op %d: painting again gave a different frame", i/4)
+		}
 	}
 	return all, cmds
 }
 
 func checkInvariants(t testing.TB, f *fixture, l *kui.DrawList) {
 	t.Helper()
-	depth := 0
-	for _, c := range l.Cmds() {
-		switch c.Op {
-		case kui.DrawClipPush:
-			depth++
-		case kui.DrawClipPop:
-			depth--
-		}
-		if depth < 0 {
-			t.Fatal("clip pop without push")
-		}
-		if !c.Node.IsZero() && !f.k.Valid(c.Node) {
-			t.Fatalf("paint command references invalid node %x", c.Node)
-		}
-	}
-	if depth != 0 {
-		t.Fatal("unbalanced clips")
-	}
-	for _, e := range f.k.Events() {
-		if !f.k.Valid(e.Node) && e.Kind != EventFocusOut && e.Kind != gesture.HoverOut {
-			t.Fatalf("event %v references invalid node", e.Kind)
-		}
-	}
-	if fo := f.k.Focus(); fo != 0 && f.k.Flags(fo)&FlagFocusable == 0 {
-		t.Fatal("focused node is not focusable")
-	} else if i, err := f.k.resolve(fo); err == nil && !f.k.inModal(i) {
-		t.Fatal("focused node is outside the active modal node")
+	if msg := sceneProblem(f.k, l, f.k.Events()); msg != "" {
+		t.Fatal(msg)
 	}
 }
 
@@ -504,8 +492,8 @@ func TestDeterministicReplay(t *testing.T) {
 		seed = seed*1664525 + 1013904223
 		data[i] = byte(seed >> 24)
 	}
-	ev1, cmd1 := script(t, data)
-	ev2, cmd2 := script(t, data)
+	ev1, cmd1 := script(t, 0, data)
+	ev2, cmd2 := script(t, 0, data)
 	if !slices.Equal(ev1, ev2) || !slices.Equal(cmd1, cmd2) {
 		t.Fatal("scene is not deterministic")
 	}
@@ -514,11 +502,40 @@ func TestDeterministicReplay(t *testing.T) {
 	}
 }
 
+// TestReplayTimeShift checks that the scene behaves the same at any absolute time.
+func TestReplayTimeShift(t *testing.T) {
+	data := make([]byte, 4*500)
+	seed := uint32(54321)
+	for i := range data {
+		seed = seed*1664525 + 1013904223
+		data[i] = byte(seed >> 24)
+	}
+	const shift = 1e12 + 12345
+	ev1, cmd1 := script(t, 0, data)
+	ev2, cmd2 := script(t, shift, data)
+	if len(ev1) != len(ev2) {
+		t.Fatalf("shifting the clock changed the number of events from %d to %d", len(ev1), len(ev2))
+	}
+	for i := range ev1 {
+		a, b := ev1[i], ev2[i]
+		if b.Time-a.Time != shift {
+			t.Fatalf("event %d at %d, shifted at %d", i, a.Time, b.Time)
+		}
+		a.Time, b.Time = 0, 0
+		if a != b {
+			t.Fatalf("event %d %+v, shifted %+v", i, a, b)
+		}
+	}
+	if !slices.Equal(cmd1, cmd2) {
+		t.Fatal("shifting the clock changed the paint commands")
+	}
+}
+
 func FuzzSceneStep(f *testing.F) {
 	f.Add([]byte{1, 30, 15, 1, 2, 30, 15, 1})
 	f.Add([]byte{3, 20, 120, 5, 7, 1, 3, 1, 4, 0x2B, 0, 1})
 	f.Fuzz(func(t *testing.T, data []byte) {
-		script(t, data)
+		script(t, 0, data)
 	})
 }
 
