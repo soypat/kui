@@ -1,8 +1,9 @@
 // Package kuigl paints kui draw lists with OpenGL: a GPU batch painter for [kui.DrawList]s.
 //
-// Shapes and glyphs become instanced quads drawn by one shader; text and shapes share draw
-// calls, which are split only when an image texture changes or a buffer fills. Glyphs are
-// rasterized by the [kui.FontFace]s of the configuration into a texture atlas on first use.
+// Shapes and glyphs become instanced quads drawn by one shader, batched by [kuibatch.Encoder];
+// text and shapes share draw calls, which are split only when an image texture changes or a
+// buffer fills. Glyphs are rasterized by the [kui.FontFace]s of the configuration into a
+// texture atlas on first use.
 // Coverage and blending follow the formulas of kui-use's CPU painter, so both paint the same
 // pixels give or take a unit of rounding, and nothing is drawn outside a command's
 // [kui.DrawCmd.Bounds], keeping damage tracking exact.
@@ -12,7 +13,10 @@
 // i.e. with GLFW. It does not allocate after [Painter.Configure].
 package kuigl
 
-import "github.com/soypat/kui"
+import (
+	"github.com/soypat/kui"
+	"github.com/soypat/kui/kui2go/kuibatch"
+)
 
 // Config configures a [Painter].
 type Config struct {
@@ -48,36 +52,31 @@ type Stats struct {
 
 // Painter paints draw lists with OpenGL. Configure it with [Painter.Configure].
 type Painter struct {
-	enc         encoder
+	enc         kuibatch.Encoder
 	gpu         gpu
 	paintCustom func(c *kui.DrawCmd)
 	stats       Stats
 	ok          bool
 }
 
-var _ sink = (*Painter)(nil)
+var _ kuibatch.Sink = sink{}
 
 // Configure creates the painter's GL resources with the context current on the calling
 // thread, initializing the GL function pointers. It is the only method that allocates.
 func (p *Painter) Configure(cfg Config) error {
-	if cfg.MaxInstances <= 0 {
-		cfg.MaxInstances = 4096
-	}
-	if cfg.AtlasSize <= 0 {
-		cfg.AtlasSize = 1024
-	}
-	if cfg.MaxGlyphs <= 0 {
-		cfg.MaxGlyphs = 2048
-	}
-	if cfg.MaxImages <= 0 {
-		cfg.MaxImages = 16
-	}
 	if p.ok {
 		p.Close()
 	}
 	*p = Painter{paintCustom: cfg.Custom}
-	p.enc.init(cfg.Faces, cfg.Images, cfg.MaxInstances, cfg.AtlasSize, cfg.MaxGlyphs, cfg.MaxImages)
-	if err := p.gpu.init(cfg.MaxInstances, cfg.AtlasSize, cfg.MaxImages); err != nil {
+	bc := p.enc.Configure(kuibatch.Config{
+		Faces:        cfg.Faces,
+		Images:       cfg.Images,
+		MaxInstances: cfg.MaxInstances,
+		AtlasSize:    cfg.AtlasSize,
+		MaxGlyphs:    cfg.MaxGlyphs,
+		MaxImages:    cfg.MaxImages,
+	})
+	if err := p.gpu.init(bc.MaxInstances, bc.AtlasSize, bc.MaxImages); err != nil {
 		return err
 	}
 	p.ok = true
@@ -104,22 +103,16 @@ func (p *Painter) Paint(l *kui.DrawList, width, height int, scale float32) error
 		scale = 1
 	}
 	p.gpu.begin(width, height)
-	p.enc.run(l, width, height, scale, p)
+	p.enc.Run(l, width, height, scale, sink{p})
 	p.stats.Frames++
-	p.stats.AtlasResets = p.enc.resets
-	p.stats.Dropped = p.enc.dropped
+	p.stats.AtlasResets = p.enc.Resets()
+	p.stats.Dropped = p.enc.Dropped()
 	return nil
 }
 
 // InvalidateImage discards the texture of image id, so its pixels are uploaded again the
 // next time it is drawn.
-func (p *Painter) InvalidateImage(id uint32) {
-	for i := range p.enc.images {
-		if s := &p.enc.images[i]; s.used && s.id == id {
-			s.used = false
-		}
-	}
-}
+func (p *Painter) InvalidateImage(id uint32) { p.enc.InvalidateImage(id) }
 
 // Stats returns the counters of the painter's work.
 func (p *Painter) Stats() Stats { return p.stats }
@@ -132,13 +125,17 @@ func (p *Painter) Close() {
 	}
 }
 
-func (p *Painter) submit(e *encoder) {
-	p.stats.Draws += p.gpu.draw(e)
-	p.stats.Instances += len(e.inst)
+// sink draws the chunks of a painter's encoder.
+type sink struct{ p *Painter }
+
+func (s sink) Submit(e *kuibatch.Encoder) {
+	s.p.stats.Draws += s.p.gpu.draw(e)
+	s.p.stats.Instances += len(e.Instances())
 }
 
-func (p *Painter) custom(c *kui.DrawCmd, clip irect) {
-	if p.paintCustom == nil || clip.empty() {
+func (s sink) Custom(c *kui.DrawCmd, clip kuibatch.Pixels) {
+	p := s.p
+	if p.paintCustom == nil || clip.Empty() {
 		return
 	}
 	p.gpu.scissor(clip)

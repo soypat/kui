@@ -1,4 +1,4 @@
-package kuigl
+package kuibatch
 
 import (
 	"slices"
@@ -42,39 +42,39 @@ func (im *testImages) Image(id uint32) (pix []byte, stride, w, h int, ok bool) {
 	return p[:], 8, 2, 2, true
 }
 
-// recSink records the chunks submitted, doing the bookkeeping of the GL sink.
+// recSink records the chunks submitted, doing the bookkeeping of a GPU sink.
 type recSink struct {
-	chunks  [][]instance
-	batches [][]batch
+	chunks  [][]Instance
+	batches [][]Batch
 	uploads []int // Image slots uploaded.
 	atlas   int   // Atlas uploads.
-	customs []irect
+	customs []Pixels
 }
 
-func (r *recSink) submit(e *encoder) {
-	r.chunks = append(r.chunks, slices.Clone(e.inst))
-	r.batches = append(r.batches, slices.Clone(e.batches))
-	if !e.atlas.dirty.empty() {
+func (r *recSink) Submit(e *Encoder) {
+	r.chunks = append(r.chunks, slices.Clone(e.Instances()))
+	r.batches = append(r.batches, slices.Clone(e.Batches()))
+	if dirty, _ := e.AtlasUpload(); !dirty.Empty() {
 		r.atlas++
-		e.atlas.dirty = irect{}
 	}
-	for i := range e.images {
-		if e.images[i].upload {
-			e.images[i].upload = false
-			r.uploads = append(r.uploads, i)
+	for {
+		slot, _, _, _, _, ok := e.ImageUpload()
+		if !ok {
+			break
 		}
+		r.uploads = append(r.uploads, slot)
 	}
 }
 
-func (r *recSink) custom(c *kui.DrawCmd, clip irect) { r.customs = append(r.customs, clip) }
+func (r *recSink) Custom(c *kui.DrawCmd, clip Pixels) { r.customs = append(r.customs, clip) }
 
-func (r *recSink) all() []instance { return slices.Concat(r.chunks...) }
+func (r *recSink) all() []Instance { return slices.Concat(r.chunks...) }
 
 type encConfig struct {
 	maxInstances, atlasSide, maxGlyphs, maxImages int
 }
 
-func newEncoder(cfg encConfig) (*encoder, *testFace) {
+func newEncoder(cfg encConfig) (*Encoder, *testFace) {
 	if cfg.maxInstances == 0 {
 		cfg.maxInstances = 256
 	}
@@ -88,8 +88,15 @@ func newEncoder(cfg encConfig) (*encoder, *testFace) {
 		cfg.maxImages = 4
 	}
 	face := new(testFace)
-	e := new(encoder)
-	e.init([]kui.FontFace{face}, new(testImages), cfg.maxInstances, cfg.atlasSide, cfg.maxGlyphs, cfg.maxImages)
+	e := new(Encoder)
+	e.Configure(Config{
+		Faces:        []kui.FontFace{face},
+		Images:       new(testImages),
+		MaxInstances: cfg.maxInstances,
+		AtlasSize:    cfg.atlasSide,
+		MaxGlyphs:    cfg.maxGlyphs,
+		MaxImages:    cfg.maxImages,
+	})
 	return e, face
 }
 
@@ -130,19 +137,18 @@ func TestBounds(t *testing.T) {
 				cmd := l.Cmds()[len(l.Cmds())-1]
 				var s recSink
 				const width, height = 100, 80
-				e.run(l, width, height, scale, &s)
+				e.Run(l, width, height, scale, &s)
 				insts := s.all()
 				if len(insts) == 0 {
 					t.Fatalf("scale %v command %d: nothing drawn", scale, i)
 				}
-				e.scale = scale
-				want := e.pixels(cmd.Bounds()).intersect(irect{0, 0, width, height})
+				want := PixelsOf(cmd.Bounds(), scale).Intersect(Pixels{0, 0, width, height})
 				if clip != (kui.Rect{}) {
-					want = want.intersect(e.pixels(clip))
+					want = want.Intersect(PixelsOf(clip, scale))
 				}
 				for _, in := range insts {
-					q := irect{int32(in.Quad[0]), int32(in.Quad[1]), int32(in.Quad[2]), int32(in.Quad[3])}
-					if q.empty() || q.intersect(want) != q {
+					q := Pixels{int32(in.Quad[0]), int32(in.Quad[1]), int32(in.Quad[2]), int32(in.Quad[3])}
+					if q.Empty() || q.Intersect(want) != q {
 						t.Errorf("scale %v clip %v command %d (%v): quad %v outside %v", scale, clip, i, cmd.Op, q, want)
 					}
 				}
@@ -158,21 +164,21 @@ func TestShapes(t *testing.T) {
 	l.Border(1, kui.Rect{X: 1, Y: 2, W: 3, H: 4}, red, kui.DrawBorders{Left: 1, Right: 2, Top: 3, Bottom: 4}, kui.Radius(1))
 	l.Line(1, kui.Point{X: 1, Y: 2}, kui.Point{X: 4, Y: 6}, 0.5, red)
 	var s recSink
-	e.run(l, 50, 50, 2, &s)
+	e.Run(l, 50, 50, 2, &s)
 	in := s.all()
 	if len(in) != 3 {
 		t.Fatalf("%d instances, want 3", len(in))
 	}
-	if in[0].Rect != [4]float32{2, 4, 6, 8} || in[0].Radii != [4]float32{2, 4, 6, 8} || in[0].Quad != [4]float32{2, 4, 8, 12} || in[0].Kind != kindRect {
+	if in[0].Rect != [4]float32{2, 4, 6, 8} || in[0].Radii != [4]float32{2, 4, 6, 8} || in[0].Quad != [4]float32{2, 4, 8, 12} || in[0].Kind != KindRect {
 		t.Errorf("rect %+v", in[0])
 	}
 	if in[0].Color != [4]uint8{255, 0, 0, 255} {
 		t.Errorf("rect color %v", in[0].Color)
 	}
-	if in[1].Param != [4]float32{2, 4, 6, 8} || in[1].Kind != kindBorder {
+	if in[1].Param != [4]float32{2, 4, 6, 8} || in[1].Kind != KindBorder {
 		t.Errorf("border %+v", in[1])
 	}
-	if in[2].Rect != [4]float32{2, 4, 6, 8} || in[2].Param[0] != 1 || in[2].Kind != kindLine { // Width at least 1.
+	if in[2].Rect != [4]float32{2, 4, 6, 8} || in[2].Param[0] != 1 || in[2].Kind != KindLine { // Width at least 1.
 		t.Errorf("line %+v", in[2])
 	}
 }
@@ -189,7 +195,7 @@ func TestSkip(t *testing.T) {
 	l.Rect(1, kui.Rect{X: 1, Y: 1, W: 5, H: 5}, red, kui.DrawRadii{}) // Clipped out.
 	l.PopClip(1)
 	var s recSink
-	e.run(l, 50, 50, 1, &s)
+	e.Run(l, 50, 50, 1, &s)
 	if len(s.chunks) != 0 {
 		t.Fatalf("drew %+v", s.all())
 	}
@@ -209,7 +215,7 @@ func TestClip(t *testing.T) {
 	l.PopClip(1)                          // Unbalanced.
 	l.Rect(1, full, red, kui.DrawRadii{}) // Screen.
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	want := [][4]float32{{10, 10, 31, 30}, {20, 10, 31, 15}, {10, 10, 31, 30}, {0, 0, 64, 48}}
 	got := s.all()
 	if len(got) != len(want) {
@@ -233,7 +239,7 @@ func TestClip(t *testing.T) {
 	}
 	l.Rect(1, full, red, kui.DrawRadii{})
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	got = s.all()
 	if len(got) != 2 || got[0].Quad != [4]float32{30, 0, 64, 48} || got[1].Quad != [4]float32{0, 0, 64, 48} {
 		t.Fatalf("deep clips: %+v", got)
@@ -245,7 +251,7 @@ func TestText(t *testing.T) {
 	l := newList()
 	l.Text(1, kui.Rect{X: 1.4, Y: 2, W: 40, H: 15}, white, "ab a", 0, 12, 2, 0)
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	got := s.all()
 	if len(got) != 3 { // The space has no glyph.
 		t.Fatalf("%d glyphs, want 3", len(got))
@@ -254,7 +260,7 @@ func TestText(t *testing.T) {
 	// Pens advance 7 plus 2 of spacing from 1.4, rounded: 1, 10 and, after the space, 28.
 	wantX := []float32{1, 10, 28}
 	for i, in := range got {
-		if in.Kind != kindGlyph || in.Quad[0] != wantX[i] || in.Quad[1] != 4 || in.Quad[2] != wantX[i]+6 || in.Quad[3] != 16 {
+		if in.Kind != KindGlyph || in.Quad[0] != wantX[i] || in.Quad[1] != 4 || in.Quad[2] != wantX[i]+6 || in.Quad[3] != 16 {
 			t.Errorf("glyph %d: %+v", i, in)
 		}
 	}
@@ -277,7 +283,7 @@ func TestText(t *testing.T) {
 	// At scale 2 glyphs are rasterized at twice the size, advancing by the logical advances.
 	face.calls = 0
 	s = recSink{}
-	e.run(l, 128, 96, 2, &s)
+	e.Run(l, 128, 96, 2, &s)
 	got = s.all()
 	if len(got) != 3 || got[0].Quad[2]-got[0].Quad[0] != 12 || got[1].Quad[0] != 2*10+1 {
 		t.Fatalf("scale 2: %+v", got)
@@ -304,21 +310,21 @@ func TestBatches(t *testing.T) {
 	l.Rect(1, r, red, kui.DrawRadii{})
 	l.Image(1, r, 1, white, kui.DrawRadii{})
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.batches) != 1 {
 		t.Fatalf("%d chunks, want 1", len(s.batches))
 	}
 	b := s.batches[0]
-	if len(b) != 3 || b[0].count != 3 || b[1].count != 3 || b[2].count != 1 ||
-		b[0].image != b[2].image || b[0].image == b[1].image || b[1].image < 0 {
+	if len(b) != 3 || b[0].Count != 3 || b[1].Count != 3 || b[2].Count != 1 ||
+		b[0].Image != b[2].Image || b[0].Image == b[1].Image || b[1].Image < 0 {
 		t.Fatalf("batches %+v", b)
 	}
-	if !slices.Equal(s.uploads, []int{b[0].image, b[1].image}) {
+	if !slices.Equal(s.uploads, []int{b[0].Image, b[1].Image}) {
 		t.Fatalf("uploads %v", s.uploads)
 	}
 	// Images stay uploaded.
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.uploads) != 0 {
 		t.Fatalf("uploads %v again", s.uploads)
 	}
@@ -331,7 +337,7 @@ func TestChunks(t *testing.T) {
 		l.Rect(1, kui.Rect{X: float32(i), Y: 1, W: 1, H: 1}, red, kui.DrawRadii{})
 	}
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if n := []int{len(s.chunks[0]), len(s.chunks[1]), len(s.chunks[2])}; len(s.chunks) != 3 || !slices.Equal(n, []int{8, 8, 4}) {
 		t.Fatalf("chunks of %d", n)
 	}
@@ -343,7 +349,7 @@ func TestChunks(t *testing.T) {
 	}
 	l.Text(1, kui.Rect{X: 1, Y: 1, W: 60, H: 13}, white, "abcdef", 0, 8, 0, 0)
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.chunks) != 2 || len(s.chunks[0]) != 5 || len(s.chunks[1]) != 6 || e.dropped != 0 {
 		t.Fatalf("chunks %d dropped %d", len(s.chunks), e.dropped)
 	}
@@ -353,7 +359,7 @@ func TestChunks(t *testing.T) {
 	l.Text(1, kui.Rect{X: 0, Y: 1, W: 64, H: 13}, white, "abcdefghijkl", 0, 8, 0, 0)
 	l.Rect(1, kui.Rect{X: 1, Y: 1, W: 1, H: 1}, red, kui.DrawRadii{})
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.chunks) != 2 || len(s.chunks[0]) != 8 || len(s.chunks[1]) != 1 || e.dropped != 1 {
 		t.Fatalf("chunks %d dropped %d", len(s.chunks), e.dropped)
 	}
@@ -366,7 +372,7 @@ func TestAtlasFull(t *testing.T) {
 	l.Text(1, kui.Rect{X: 0, Y: 0, W: 64, H: 13}, white, "abcdef", 0, 8, 0, 0)
 	l.Text(1, kui.Rect{X: 0, Y: 20, W: 64, H: 13}, white, "ghijkl", 0, 8, 0, 0)
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.chunks) != 2 || len(s.chunks[0]) != 6 || len(s.chunks[1]) != 6 || e.resets != 1 || s.atlas != 2 {
 		t.Fatalf("chunks %d, resets %d, uploads %d", len(s.chunks), e.resets, s.atlas)
 	}
@@ -376,7 +382,7 @@ func TestAtlasFull(t *testing.T) {
 	l = newList()
 	l.Text(1, kui.Rect{X: 0, Y: 0, W: 64, H: 13}, white, "abcdefghij", 0, 8, 0, 0)
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if got := len(s.all()); got != 8 || e.dropped != 2 {
 		t.Fatalf("%d glyphs, %d dropped", got, e.dropped)
 	}
@@ -390,7 +396,7 @@ func TestAtlasFull(t *testing.T) {
 	l.Text(1, kui.Rect{X: 0, Y: 0, W: 64, H: 13}, white, "abc", 0, 8, 0, 0)
 	l.Text(1, kui.Rect{X: 0, Y: 20, W: 64, H: 13}, white, "d", 0, 8, 0, 0)
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.chunks) != 2 || e.resets != 1 {
 		t.Fatalf("chunks %d, resets %d", len(s.chunks), e.resets)
 	}
@@ -404,28 +410,73 @@ func TestImageSlots(t *testing.T) {
 		l.Image(1, r, id, white, kui.DrawRadii{})
 	}
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.chunks) != 2 || len(s.chunks[0]) != 2 || len(s.chunks[1]) != 1 || len(s.uploads) != 3 {
 		t.Fatalf("chunks %d, uploads %v", len(s.chunks), s.uploads)
 	}
-	if img := s.chunks[0][0]; img.Kind != kindImage || img.Param[0] != 2 || img.Param[1] != 2 || img.Color != [4]uint8{255, 255, 255, 255} {
+	if img := s.chunks[0][0]; img.Kind != KindImage || img.Param[0] != 2 || img.Param[1] != 2 || img.Color != [4]uint8{255, 255, 255, 255} {
 		t.Fatalf("image %+v", img)
 	}
 	// Invalidated images are uploaded again.
 	l = newList()
 	l.Image(1, r, 3, kui.Color{}, kui.DrawRadii{})
 	s = recSink{}
-	e.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.uploads) != 0 {
 		t.Fatalf("uploads %v", s.uploads)
 	}
-	var p Painter
-	p.enc = *e
-	p.InvalidateImage(3)
+	e.InvalidateImage(3)
 	s = recSink{}
-	p.enc.run(l, 64, 48, 1, &s)
+	e.Run(l, 64, 48, 1, &s)
 	if len(s.uploads) != 1 {
 		t.Fatalf("uploads %v after invalidating", s.uploads)
+	}
+}
+
+// sizedImages has one image, id 1, of w by h pixels.
+type sizedImages struct {
+	w, h int
+	pix  [64]byte
+}
+
+func (im *sizedImages) Image(id uint32) (pix []byte, stride, w, h int, ok bool) {
+	if id != 1 {
+		return nil, 0, 0, 0, false
+	}
+	return im.pix[:4*im.w*im.h], 4 * im.w, im.w, im.h, true
+}
+
+// funcSink submits chunks with a function.
+type funcSink func(e *Encoder)
+
+func (f funcSink) Submit(e *Encoder)           { f(e) }
+func (f funcSink) Custom(*kui.DrawCmd, Pixels) {}
+
+// TestImageChanged checks images whose source changes between encoding and uploading are
+// skipped, and uploaded with their new size when next drawn.
+func TestImageChanged(t *testing.T) {
+	src := &sizedImages{w: 2, h: 2}
+	var e Encoder
+	e.Configure(Config{Images: src})
+	l := newList()
+	l.Image(1, kui.Rect{X: 1, Y: 1, W: 4, H: 4}, 1, kui.Color{}, kui.DrawRadii{})
+	var widths []int // Widths of the images uploaded.
+	upload := funcSink(func(e *Encoder) {
+		for {
+			_, _, _, w, _, ok := e.ImageUpload()
+			if !ok {
+				break
+			}
+			widths = append(widths, w)
+		}
+	})
+	e.Run(l, 64, 48, 1, funcSink(func(e *Encoder) { src.w = 3; upload(e) }))
+	if len(widths) != 0 {
+		t.Fatalf("uploaded widths %v of a changed image", widths)
+	}
+	e.Run(l, 64, 48, 1, upload)
+	if !slices.Equal(widths, []int{3}) {
+		t.Fatalf("uploaded widths %v, want [3]", widths)
 	}
 }
 
@@ -439,8 +490,8 @@ func TestCustom(t *testing.T) {
 	l.PopClip(1)
 	l.Rect(1, r, red, kui.DrawRadii{})
 	var s recSink
-	e.run(l, 64, 48, 1, &s)
-	if len(s.chunks) != 2 || len(s.customs) != 1 || s.customs[0] != (irect{2, 3, 12, 13}) {
+	e.Run(l, 64, 48, 1, &s)
+	if len(s.chunks) != 2 || len(s.customs) != 1 || s.customs[0] != (Pixels{2, 3, 12, 13}) {
 		t.Fatalf("chunks %d customs %v", len(s.chunks), s.customs)
 	}
 }
@@ -448,15 +499,17 @@ func TestCustom(t *testing.T) {
 // countSink counts instances without allocating.
 type countSink struct{ n int }
 
-func (c *countSink) submit(e *encoder) {
-	c.n += len(e.inst)
-	e.atlas.dirty = irect{}
-	for i := range e.images {
-		e.images[i].upload = false
+func (c *countSink) Submit(e *Encoder) {
+	c.n += len(e.Instances())
+	e.AtlasUpload()
+	for {
+		if _, _, _, _, _, ok := e.ImageUpload(); !ok {
+			break
+		}
 	}
 }
 
-func (c *countSink) custom(*kui.DrawCmd, irect) {}
+func (c *countSink) Custom(*kui.DrawCmd, Pixels) {}
 
 func TestEncodeAllocs(t *testing.T) {
 	e, _ := newEncoder(encConfig{maxInstances: 16, atlasSide: 32, maxImages: 1})
@@ -467,7 +520,7 @@ func TestEncodeAllocs(t *testing.T) {
 	l.Image(1, kui.Rect{X: 5, Y: 6, W: 9.5, H: 7}, 2, kui.Color{}, kui.Radius(2)) // Swaps the image slot.
 	l.Text(1, kui.Rect{X: 1, Y: 20, W: 60, H: 13}, white, "the quick brown fox", 0, 13, 0, 0)
 	var s countSink
-	run := func() { e.run(l, 100, 80, 1.5, &s) }
+	run := func() { e.Run(l, 100, 80, 1.5, &s) }
 	run()
 	if allocs := testing.AllocsPerRun(100, run); allocs != 0 {
 		t.Fatal("allocations:", allocs)

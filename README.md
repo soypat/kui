@@ -12,6 +12,13 @@ kui has minimal logic, instead needing the user to plug in interfaces that are n
 - [EventReader](./events.go): consumer end of an event queue, drained by the UI to process input [Events](./events.go).
 - [EventBuilder](./events.go): Not an interface per-se, but it is the contact point with devices such as keyboards, touch pads and mice.
 
+## webgpu example
+GLFW window and events, WebGPU painting, lefevre text shaping:
+```
+cd bindings
+go run ./paint/kuiwgpu/examples/window
+```
+
 ## cogent-core example
 ```
 cd bindings/multi/kuicogent/examples/window
@@ -26,6 +33,7 @@ Package [`kui2go`](./kui2go/) contains implementations that are simple and strai
 - [kui2go.EventSPSC](./kui2go/event-spsc.go): Single-Producer/Single-Consumer event queue, implements EventWriter and EventReader.
 - [kui2go.TextFaces](./kui2go/text-faces.go): Measurer over FontFaces indexed by font, measuring with the advances painters draw with.
 - [kuiscene.Scene](./kui2go/kuiscene/scene.go): retained node tree with layout, hit testing, gesture routing, focus, timers, scrolling, text editing and painting.
+- [kuibatch.Encoder](./kui2go/kuibatch/encode.go): batches draw lists into instanced quads and a glyph atlas for GPU painters, whatever their graphics API.
 
 ## bindings
 

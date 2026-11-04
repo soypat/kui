@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/soypat/kui"
+	"github.com/soypat/kui/kui2go/kuibatch"
 )
 
 // This file holds every GL call of the package, so other bindings (OpenGL ES, WebGL 2) can
@@ -38,7 +39,7 @@ func (g *gpu) init(maxInstances, atlasSide, maxImages int) error {
 	if err != nil {
 		return err
 	}
-	*g = gpu{prog: prog, vboBytes: maxInstances * instanceSize, atlasSide: int32(atlasSide), images: make([]uint32, maxImages)}
+	*g = gpu{prog: prog, vboBytes: maxInstances * kuibatch.InstanceSize, atlasSide: int32(atlasSide), images: make([]uint32, maxImages)}
 	gl.UseProgram(prog)
 	g.uFB = gl.GetUniformLocation(prog, gl.Str("uFB\x00"))
 	gl.Uniform1i(gl.GetUniformLocation(prog, gl.Str("uAtlas\x00")), 0)
@@ -164,57 +165,51 @@ func (g *gpu) clear(c kui.Color) {
 }
 
 // scissor clips drawing to clip, in pixels from the top left corner.
-func (g *gpu) scissor(clip irect) {
+func (g *gpu) scissor(clip kuibatch.Pixels) {
 	gl.Enable(gl.SCISSOR_TEST)
-	gl.Scissor(clip.x0, int32(g.height)-clip.y1, clip.x1-clip.x0, clip.y1-clip.y0)
+	gl.Scissor(clip.X0, int32(g.height)-clip.Y1, clip.X1-clip.X0, clip.Y1-clip.Y0)
 }
 
 // draw uploads the glyphs and images of e's chunk and draws its batches, returning the number
 // of draw calls.
-func (g *gpu) draw(e *encoder) (draws int) {
-	if d := e.atlas.dirty; !d.empty() {
+func (g *gpu) draw(e *kuibatch.Encoder) (draws int) {
+	if d, pix := e.AtlasUpload(); !d.Empty() {
 		gl.ActiveTexture(gl.TEXTURE0)
 		gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, g.atlasSide)
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, d.x0, d.y0, d.x1-d.x0, d.y1-d.y0, gl.RED, gl.UNSIGNED_BYTE,
-			unsafe.Pointer(&e.atlas.pix[int(d.y0)*e.atlas.side+int(d.x0)]))
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, d.X0, d.Y0, d.X1-d.X0, d.Y1-d.Y0, gl.RED, gl.UNSIGNED_BYTE,
+			unsafe.Pointer(&pix[int(d.Y0)*int(g.atlasSide)+int(d.X0)]))
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 		gl.PixelStorei(gl.UNPACK_ALIGNMENT, 4)
-		e.atlas.dirty = irect{}
 	}
 	bound := -1
-	for i := range e.images {
-		s := &e.images[i]
-		if !s.upload {
-			continue
-		}
-		s.upload = false
-		pix, stride, w, h, ok := e.lookImage(s.id)
-		if !ok || w != s.w || h != s.h {
-			s.used = false // The source changed it since it was encoded.
-			continue
+	for {
+		slot, pix, stride, w, h, ok := e.ImageUpload()
+		if !ok {
+			break
 		}
 		gl.ActiveTexture(gl.TEXTURE1)
-		gl.BindTexture(gl.TEXTURE_2D, g.images[i])
-		bound = i
+		gl.BindTexture(gl.TEXTURE_2D, g.images[slot])
+		bound = slot
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, int32(stride/4))
 		gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(w), int32(h), 0, gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&pix[0]))
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	}
+	inst := e.Instances()
 	// Orphan the buffer so the driver need not wait for draws reading the previous chunk.
 	gl.BufferData(gl.ARRAY_BUFFER, g.vboBytes, nil, gl.STREAM_DRAW)
-	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(e.inst)*instanceSize, unsafe.Pointer(&e.inst[0]))
-	for _, b := range e.batches {
-		if b.count == 0 {
+	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(inst)*kuibatch.InstanceSize, unsafe.Pointer(&inst[0]))
+	for _, b := range e.Batches() {
+		if b.Count == 0 {
 			continue
 		}
-		if b.image >= 0 && b.image != bound {
+		if b.Image >= 0 && b.Image != bound {
 			gl.ActiveTexture(gl.TEXTURE1)
-			gl.BindTexture(gl.TEXTURE_2D, g.images[b.image])
-			bound = b.image
+			gl.BindTexture(gl.TEXTURE_2D, g.images[b.Image])
+			bound = b.Image
 		}
-		g.attribs(b.first)
-		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, int32(b.count))
+		g.attribs(b.First)
+		gl.DrawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, int32(b.Count))
 		draws++
 	}
 	return draws
@@ -223,9 +218,9 @@ func (g *gpu) draw(e *encoder) (draws int) {
 // attribs points the instance attributes at the instances from first on. GL 3.3 and ES 3.0
 // lack a base instance, so batches move the pointers instead.
 func (g *gpu) attribs(first int) {
-	var in instance
-	base := uintptr(first * instanceSize)
-	const stride = int32(instanceSize)
+	var in kuibatch.Instance
+	base := uintptr(first * kuibatch.InstanceSize)
+	const stride = int32(kuibatch.InstanceSize)
 	gl.VertexAttribPointerWithOffset(0, 4, gl.FLOAT, false, stride, base+unsafe.Offsetof(in.Rect))
 	gl.VertexAttribPointerWithOffset(1, 4, gl.FLOAT, false, stride, base+unsafe.Offsetof(in.Quad))
 	gl.VertexAttribPointerWithOffset(2, 4, gl.FLOAT, false, stride, base+unsafe.Offsetof(in.Radii))

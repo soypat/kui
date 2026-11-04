@@ -1,4 +1,4 @@
-package kuigl
+package kuibatch
 
 import "github.com/soypat/kui"
 
@@ -35,7 +35,7 @@ type atlas struct {
 	side  int
 	x, y  int // Packing position.
 	shelf int // Height of the current shelf.
-	dirty irect
+	dirty Pixels
 	table []glyph // Open addressing hash table, at least twice max long.
 	n     int
 	max   int
@@ -53,7 +53,7 @@ func (a *atlas) init(side, maxGlyphs int) {
 func (a *atlas) reset() {
 	clear(a.table)
 	a.n, a.x, a.y, a.shelf = 0, 0, 0, 0
-	a.dirty = irect{}
+	a.dirty = Pixels{}
 }
 
 // glyph returns the glyph of rune r of face at size, rasterizing it at psize if it is not in
@@ -90,8 +90,8 @@ func (a *atlas) insert(g *glyph, face kui.FontFace, k glyphKey) bool {
 		for row := range h {
 			copy(a.pix[(y+row)*a.side+x:], mask[row*w:(row+1)*w])
 		}
-		r := irect{int32(x), int32(y), int32(x + w), int32(y + h)}
-		if a.dirty.empty() {
+		r := Pixels{int32(x), int32(y), int32(x + w), int32(y + h)}
+		if a.dirty.Empty() {
 			a.dirty = r
 		} else {
 			a.dirty = a.dirty.union(r)

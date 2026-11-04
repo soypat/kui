@@ -8,8 +8,9 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v3.3-core/gl"
-	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/glfw/v3.4/glfw"
 	"github.com/soypat/kui"
+	"github.com/soypat/kui/kui2go/kuibatch"
 )
 
 // GL calls run on the main OS thread, as GLFW requires, through onMain.
@@ -203,12 +204,11 @@ func TestGLBounds(t *testing.T) {
 		add(l)
 		cmd := l.Cmds()[0]
 		f := paint(t, p, l, 1)
-		e := encoder{scale: 1}
-		b := e.pixels(cmd.Bounds())
+		b := kuibatch.PixelsOf(cmd.Bounds(), 1)
 		drawn := false
 		for y := range fbHeight {
 			for x := range fbWidth {
-				inside := int32(x) >= b.x0 && int32(x) < b.x1 && int32(y) >= b.y0 && int32(y) < b.y1
+				inside := int32(x) >= b.X0 && int32(x) < b.X1 && int32(y) >= b.Y0 && int32(y) < b.Y1
 				if f[y][x] != rgbaOf(bg) {
 					drawn = true
 					if !inside {

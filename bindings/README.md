@@ -8,9 +8,14 @@ binding.
 
 - [events](./events/): input producers writing to a `kui.EventWriter`, and the platform services
   of the same library that a UI asks for with `kui.Request`s: cursor shape, clipboard, text input.
-  - [kuiglfw](./events/kuiglfw/): GLFW windows.
+  - [kuiglfw](./events/kuiglfw/): GLFW 3.4 windows.
 - [paint](./paint/): painters of `kui.DrawList`s on graphics APIs.
   - [kuigl](./paint/kuigl/): OpenGL 3.3 core, shaders written to the subset shared with OpenGL ES 3.0 and WebGL 2.
+  - [kuiwgpu](./paint/kuiwgpu/): WebGPU with [oliverbestmann/webgpu](https://github.com/oliverbestmann/webgpu), the
+    bindings Cogent Core uses: Vulkan, Metal, Direct3D 12 and OpenGL ES through wgpu-native, or the browser's WebGPU.
+    Pairs with kuiglfw: see [its example](./paint/kuiwgpu/examples/window/).
+
+  Both GPU painters batch draw lists with [kuibatch](../kui2go/kuibatch/) and paint the same pixels.
 - [layout](./layout/): `kui.LayoutEngine`s.
   - [kuiglay](./layout/kuiglay/): [glay](https://github.com/soypat/glay), a Go port of clay.
 - [fonts](./fonts/): font libraries: `kui.Font` metrics, text shaping (glyph selection, advances,
