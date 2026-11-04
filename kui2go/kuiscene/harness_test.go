@@ -266,7 +266,7 @@ func (o op) String() string {
 		if o.arg&argSecondary != 0 && o.kind != opMove {
 			b.WriteString("r")
 		}
-		b.WriteString(verb + " " + where)
+		catspace(&b, verb, where)
 		if o.arg&argSource1 != 0 {
 			b.WriteString(" src1")
 		}
@@ -286,11 +286,11 @@ func (o op) String() string {
 	case opWheel:
 		fmt.Fprintf(&b, "wheel %s by %+d", where, int8(o.arg))
 	case opKey:
-		b.WriteString("key " + modsString(opMods[o.arg>>4&7]) + opKeys[o.arg&15].String())
+		catspace(&b, "key", modsString(opMods[o.arg>>4&7]), opKeys[o.arg&15].String())
 	case opType:
-		b.WriteString("type " + strconv.Quote(opTexts[int(o.arg)%len(opTexts)]))
+		catspace(&b, "type", strconv.Quote(opTexts[int(o.arg)%len(opTexts)]))
 	case opRune:
-		b.WriteString("rune " + strconv.QuoteRune(rune(o.arg)))
+		catspace(&b, "rune", strconv.QuoteRune(rune(o.arg)))
 	case opWait:
 		b.WriteString("wait")
 	case opLeave, opCancel:
@@ -299,16 +299,31 @@ func (o op) String() string {
 			b.WriteString(" src1")
 		}
 	case opPopup:
-		b.WriteString("popup " + strconv.FormatBool(o.arg&1 != 0))
+		catspace(&b, "popup", strconv.FormatBool(o.arg&1 != 0))
 	case opFlags:
-		b.WriteString([...]string{"enable ", "disable ", "hide "}[o.arg%3] + refNames[o.target])
+		catspace(&b, [...]string{"enable", "disable", "hide"}[o.arg%3], refNames[o.target])
 	case opFocus:
-		b.WriteString("focus " + refNames[o.target])
+		catspace(&b, "focus", refNames[o.target])
 	case opClickAbs:
 		fmt.Fprintf(&b, "click at (%.2f,%.2f) of viewport", frac(o.x), frac(o.y))
 	}
 	fmt.Fprintf(&b, " +%dms", int(o.dt)*int(opUnit/ms))
 	return b.String()
+}
+
+func cat(b *strings.Builder, strs ...string) {
+	for i := range strs {
+		b.WriteString(strs[i])
+	}
+}
+
+func catspace(b *strings.Builder, strs ...string) {
+	for i := range strs {
+		if i != 0 {
+			b.WriteByte(' ')
+		}
+		b.WriteString(strs[i])
+	}
 }
 
 func modsString(m kui.KeyMods) string {
@@ -529,9 +544,9 @@ func (u *widgetUI) describe(evs []NodeEvent) string {
 		if i > 0 {
 			b.WriteByte(' ')
 		}
-		b.WriteString(u.name(e.Node) + ":" + EventKindString(e.Kind))
+		cat(&b, u.name(e.Node), ":", EventKindString(e.Kind))
 		if e.Kind == EventChanged && e.Code != 0 {
-			b.WriteString("=" + strconv.Itoa(int(e.Code)))
+			cat(&b, "=", strconv.Itoa(int(e.Code)))
 		}
 	}
 	b.WriteByte(']')
@@ -550,7 +565,7 @@ func (u *widgetUI) traceString() string {
 		fmt.Fprintf(&b, "  (%d earlier ops)\n", first)
 	}
 	for i := first; i < u.ntrace; i++ {
-		b.WriteString("  " + u.trace[i%traceLen] + "\n")
+		cat(&b, " ", u.trace[i%traceLen], "\n")
 	}
 	return b.String()
 }
