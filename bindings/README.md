@@ -18,3 +18,5 @@ binding.
   usually do all of these.
   - [kuilefevre](./fonts/kuilefevre/): outline fonts such as TrueType with [lefevre](https://github.com/soypat/lefevre).
 - [image](./image/): `kui.ImageSource`s decoding image formats.
+- [multi](./multi/): libraries filling several roles at once, bound by one package.
+  - [kuicogent](./multi/kuicogent/): [Cogent Core](https://cogentcore.org/core): window events, painting with its painter and text measuring with its shaper. A module of its own, since Cogent Core requires Go 1.27.
