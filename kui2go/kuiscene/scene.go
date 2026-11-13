@@ -224,7 +224,7 @@ type Config struct {
 // held by the queue they were drained from ([kui.Event.IsString]). Every [kui.EventReader], i.e.
 // the SPSC and Fan of package event, implements it.
 type TextSource interface {
-	EventTextWrite(dst []byte, e *kui.Event) int
+	DrainTextEvent(dst []byte, e *kui.Event) int
 }
 
 // Scene is a retained UI tree with input handling and painting. See the package documentation.

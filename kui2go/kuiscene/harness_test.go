@@ -74,7 +74,7 @@ type widgetUI struct {
 
 func newWidgetUI(t testing.TB) *widgetUI {
 	eng := new(kui2go.LayoutBasic)
-	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, Measurer: widgetFont}); err != nil {
+	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, FontMeasurer: widgetFont}); err != nil {
 		t.Fatal(err)
 	}
 	u := &widgetUI{k: new(Scene), w: new(WidgetBuilder)}
@@ -87,7 +87,7 @@ func newWidgetUI(t testing.TB) *widgetUI {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = u.w.Configure(u.k, WidgetConfig{Measurer: widgetFont}); err != nil {
+	if err = u.w.Configure(u.k, WidgetConfig{FontMeasurer: widgetFont}); err != nil {
 		t.Fatal(err)
 	}
 	u.queue.Reset(make([]kui.Event, 4), make([]byte, 64))
@@ -286,7 +286,7 @@ func (o op) String() string {
 	case opWheel:
 		fmt.Fprintf(&b, "wheel %s by %+d", where, int8(o.arg))
 	case opKey:
-		catspace(&b, "key", modsString(opMods[o.arg>>4&7]), opKeys[o.arg&15].String())
+		catspace(&b, "key", modsString(opMods[o.arg>>4&7])+opKeys[o.arg&15].String())
 	case opType:
 		catspace(&b, "type", strconv.Quote(opTexts[int(o.arg)%len(opTexts)]))
 	case opRune:

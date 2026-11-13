@@ -137,8 +137,8 @@ func (q *EventSPSC) DrainEvents(dst []kui.Event) int {
 	return n
 }
 
-// EventTextWrite implements [kui.EventReader]. Consumer only.
-func (q *EventSPSC) EventTextWrite(dst []byte, e *kui.Event) int {
+// DrainTextEvent implements [kui.EventReader]. Consumer only.
+func (q *EventSPSC) DrainTextEvent(dst []byte, e *kui.Event) int {
 	if !e.IsString() {
 		return writeRune(dst, e)
 	}
@@ -285,13 +285,13 @@ func (f *EventFan) DrainEvents(dst []kui.Event) int {
 	return n
 }
 
-// EventTextWrite implements [kui.EventReader].
-func (f *EventFan) EventTextWrite(dst []byte, e *kui.Event) int {
+// DrainTextEvent implements [kui.EventReader].
+func (f *EventFan) DrainTextEvent(dst []byte, e *kui.Event) int {
 	if !e.IsString() {
 		return writeRune(dst, e)
 	}
 	if i := int(e.Code >> 24); i < len(f.srcs) {
-		return f.srcs[i].EventTextWrite(dst, e) // The source's text mask drops the index.
+		return f.srcs[i].DrainTextEvent(dst, e) // The source's text mask drops the index.
 	}
 	return 0
 }

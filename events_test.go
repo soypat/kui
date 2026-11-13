@@ -2,7 +2,7 @@ package kui
 
 import "testing"
 
-func TestKeyModsAppendString(t *testing.T) {
+func TestKeyModsStringAppend(t *testing.T) {
 	tests := []struct {
 		mods KeyMods
 		want string
@@ -14,7 +14,7 @@ func TestKeyModsAppendString(t *testing.T) {
 		{KeyModAlt | KeyModSuper | KeyModNumLock, "alt super numL"},
 	}
 	for _, tc := range tests {
-		if got := string(tc.mods.AppendString(nil)); got != tc.want {
+		if got := string(tc.mods.StringAppend(nil)); got != tc.want {
 			t.Errorf("%#x: want %q, got %q", uint8(tc.mods), tc.want, got)
 		}
 	}

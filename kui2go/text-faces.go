@@ -2,10 +2,10 @@ package kui2go
 
 import "github.com/soypat/kui"
 
-var _ kui.Measurer = TextFaces(nil)
+var _ kui.FontMeasurer = TextFaces(nil)
 
 // TextFaces maps the font identifiers of [kui.TextStyle] and of text draw commands to faces:
-// font i is drawn and measured with TextFaces[i]. It implements [kui.Measurer] with the glyph
+// font i is drawn and measured with TextFaces[i]. It implements [kui.FontMeasurer] with the glyph
 // advances painters draw with, so measured and painted widths agree.
 type TextFaces []kui.FontFace
 
@@ -17,7 +17,7 @@ func (fs TextFaces) Face(id uint16) kui.FontFace {
 	return fs[id]
 }
 
-// Measure implements [kui.Measurer]. The width of s is the sum of its glyph advances, including
+// Measure implements [kui.FontMeasurer]. The width of s is the sum of its glyph advances, including
 // those of glyphs the face does not have, plus letter spacing; its height the font's line height.
 func (fs TextFaces) Measure(s string, st *kui.TextStyle) (w, h float32) {
 	f := fs.Face(st.FontID)

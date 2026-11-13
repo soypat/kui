@@ -9,7 +9,7 @@ import (
 
 func newEngine(t testing.TB) *Engine {
 	var e Engine
-	err := e.Configure(Config{MaxElements: 64, Measurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
+	err := e.Configure(Config{MaxElements: 64, FontMeasurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestEngine(t *testing.T) {
 
 func TestEngineErrors(t *testing.T) {
 	var e Engine
-	if err := e.Configure(Config{MaxElements: 6, Measurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
+	if err := e.Configure(Config{MaxElements: 6, FontMeasurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
 		t.Fatal(err)
 	}
 	tr := newTree()
@@ -120,7 +120,7 @@ func TestEngineErrors(t *testing.T) {
 		t.Fatalf("needed elements: %d", n)
 	}
 	e = Engine{}
-	e.Configure(Config{MaxElements: 7, Measurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
+	e.Configure(Config{MaxElements: 7, FontMeasurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
 	tr.Lines = tr.Lines[:0:2]
 	if err := e.Layout(tr, kui.Size{W: 200, H: 200}); err != kui.ErrShortBuffer {
 		t.Fatalf("want ErrShortBuffer, got %v", err)

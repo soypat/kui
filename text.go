@@ -17,7 +17,7 @@ type Font interface {
 }
 
 // Advance returns glyph's pen advance at size pixels, rounded to whole pixels. A [FontFace] built on f
-// reports it and its [Measurer] sums it, so measured and painted widths agree.
+// reports it and its [FontMeasurer] sums it, so measured and painted widths agree.
 func FontAdvance(f Font, glyph uint16, size uint16) int {
 	upem := int64(f.UnitsPerEm())
 	if upem <= 0 {
@@ -40,8 +40,8 @@ type FontFace interface {
 	Glyph(size uint16, r rune) (mask []byte, w, h, dx, dy, advance int, ok bool)
 }
 
-// Measurer measures text. Implementations must not allocate nor retain s.
-type Measurer interface {
+// FontMeasurer measures text. Implementations must not allocate nor retain s.
+type FontMeasurer interface {
 	// Measure returns the width and height of s laid out on a single line. The height of
 	// the empty string is the height of a line.
 	Measure(s string, st *TextStyle) (w, h float32)

@@ -179,7 +179,7 @@ func consume(t *testing.T, r kui.EventReader, producers, total int) {
 			last = e.Time
 			p := int(e.Source)
 			if e.Kind == kui.EventText {
-				text := buf[:r.EventTextWrite(buf[:], e)]
+				text := buf[:r.DrainTextEvent(buf[:], e)]
 				p = int(text[1] - '0')
 				if want := textOf(p, next[p]); string(text) != want {
 					t.Fatalf("producer %d: want text %q, got %q", p, want, text)
@@ -390,7 +390,7 @@ func TestWriteTextEvent(t *testing.T) {
 			i += w.WriteEvents(evs[i:n])
 			continue
 		}
-		text := buf[:r.EventTextWrite(buf[:], &evs[i])]
+		text := buf[:r.DrainTextEvent(buf[:], &evs[i])]
 		if err := w.WriteTextEvent(evs[i], text); err != nil {
 			t.Fatal(err)
 		}
@@ -423,7 +423,7 @@ func TestEventSPSCAllocs(t *testing.T) {
 		w.WriteTextEvent(kui.Event{Time: 3, Kind: kui.EventText}, text)
 		n := q.DrainEvents(dst)
 		for i := range dst[:n] {
-			q.EventTextWrite(buf, &dst[i])
+			q.DrainTextEvent(buf, &dst[i])
 		}
 	})
 	if allocs != 0 {
@@ -447,7 +447,7 @@ func TestEventFanAllocs(t *testing.T) {
 		f.Source(1).WriteTextEvent(kui.Event{Time: 3, Kind: kui.EventText}, []byte("text"))
 		n := r.DrainEvents(dst)
 		for i := range dst[:n] {
-			r.EventTextWrite(buf, &dst[i])
+			r.DrainTextEvent(buf, &dst[i])
 		}
 	})
 	if allocs != 0 {
@@ -458,10 +458,10 @@ func TestEventFanAllocs(t *testing.T) {
 // eventText returns the text of e read from r.
 func eventText(r kui.EventReader, e *kui.Event) string {
 	var buf [64]byte
-	return string(buf[:r.EventTextWrite(buf[:], e)])
+	return string(buf[:r.DrainTextEvent(buf[:], e)])
 }
 
-func TestEventTextWrite(t *testing.T) {
+func TestDrainTextEvent(t *testing.T) {
 	var q EventSPSC
 	q.Reset(make([]kui.Event, 4), make([]byte, 8))
 	var evs [4]kui.Event
@@ -478,17 +478,17 @@ func TestEventTextWrite(t *testing.T) {
 	// Text that does not fit is dropped at a rune boundary.
 	var dst [8]byte
 	for size, want := range []string{"", "a", "a", "aé", "aé", "aé", "aé€", "aé€b"} {
-		if got := string(dst[:q.EventTextWrite(dst[:size], &evs[0])]); got != want {
+		if got := string(dst[:q.DrainTextEvent(dst[:size], &evs[0])]); got != want {
 			t.Errorf("%d bytes: got %q, want %q", size, got, want)
 		}
 	}
 	// Single runes are dropped whole, as are invalid ones.
 	e := kui.Event{Kind: kui.EventText, Code: '€'}
-	if q.EventTextWrite(dst[:2], &e) != 0 || q.EventTextWrite(dst[:3], &e) != 3 || string(dst[:3]) != "€" {
+	if q.DrainTextEvent(dst[:2], &e) != 0 || q.DrainTextEvent(dst[:3], &e) != 3 || string(dst[:3]) != "€" {
 		t.Error("single rune")
 	}
 	e.Code = 0xd800
-	if q.EventTextWrite(dst[:], &e) != 0 {
+	if q.DrainTextEvent(dst[:], &e) != 0 {
 		t.Error("invalid rune written")
 	}
 }

@@ -77,9 +77,9 @@ func DefaultTheme() Theme {
 type WidgetConfig struct {
 	// Theme styles the widgets. The zero Theme uses [DefaultTheme].
 	Theme Theme
-	// Measurer measures text to place the caret of entries, and should be the layout engine's.
+	// FontMeasurer measures text to place the caret of entries, and should be the layout engine's.
 	// Required by [WidgetBuilder.Entry].
-	Measurer kui.Measurer
+	FontMeasurer kui.FontMeasurer
 	// InsertBytes is the size of the buffer text typed or pasted into entries is read into.
 	// Longer insertions are dropped. Defaults to 256.
 	InsertBytes int
@@ -117,7 +117,7 @@ const (
 type WidgetBuilder struct {
 	scene    *Scene
 	theme    Theme
-	measurer kui.Measurer
+	measurer kui.FontMeasurer
 	kinds    WidgetKinds
 	edit     edit
 	insert   []byte
@@ -134,7 +134,7 @@ func (w *WidgetBuilder) Configure(scene *Scene, cfg WidgetConfig) error {
 	if n <= 0 {
 		n = 256
 	}
-	*w = WidgetBuilder{scene: scene, theme: cfg.Theme, measurer: cfg.Measurer, insert: w.insert[:0]}
+	*w = WidgetBuilder{scene: scene, theme: cfg.Theme, measurer: cfg.FontMeasurer, insert: w.insert[:0]}
 	if w.theme == (Theme{}) {
 		w.theme = DefaultTheme()
 	}

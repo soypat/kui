@@ -48,8 +48,8 @@ type Config struct {
 	// MaxMeasureWords sizes glay's text measurement cache, which must hold the words of all
 	// texts of a layout. See [glay.Config].
 	MaxMeasureWords int
-	// Measurer measures text. Required to lay out text.
-	Measurer kui.Measurer
+	// FontMeasurer measures text. Required to lay out text.
+	FontMeasurer kui.FontMeasurer
 }
 
 // Engine is a [kui.LayoutEngine] backed by a [glay.Context], which it declares each tree to.
@@ -57,7 +57,7 @@ type Config struct {
 type Engine struct {
 	ctx      glay.Context
 	cfg      glay.Config // glay's configuration, to re-initialize it.
-	measurer kui.Measurer
+	measurer kui.FontMeasurer
 	decl     glay.ElementDeclaration
 	style    kui.TextStyle
 	// Scratch indexed by position in Order.
@@ -83,7 +83,7 @@ func (e *Engine) Configure(cfg Config) error {
 	if cfg.MaxElements <= 0 || maxLines < 0 || cfg.MaxMeasureWords < 0 {
 		return kui.ErrInvalidConfig
 	}
-	e.measurer = cfg.Measurer
+	e.measurer = cfg.FontMeasurer
 	e.cfg = glay.Config{
 		MaxElementCount:              cfg.MaxElements + 2, // Root element and clay's reserved slot.
 		MaxMeasureTextCacheWordCount: cfg.MaxMeasureWords,

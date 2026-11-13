@@ -225,10 +225,10 @@ type diffEngines struct {
 func newDiffEngines(t testing.TB, maxElements, maxNodes int) *diffEngines {
 	m := kui2go.TextMono{CharWidth: 8, LineHeight: 16}
 	var e diffEngines
-	if err := e.glay.Configure(Config{MaxElements: maxElements, MaxLines: 512, MaxMeasureWords: 32 * maxElements, Measurer: m}); err != nil {
+	if err := e.glay.Configure(Config{MaxElements: maxElements, MaxLines: 512, MaxMeasureWords: 32 * maxElements, FontMeasurer: m}); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.basic.Configure(kui2go.LayoutBasicConfig{MaxNodes: maxNodes, Measurer: m}); err != nil {
+	if err := e.basic.Configure(kui2go.LayoutBasicConfig{MaxNodes: maxNodes, FontMeasurer: m}); err != nil {
 		t.Fatal(err)
 	}
 	return &e
@@ -435,7 +435,7 @@ func TestNeeds(t *testing.T) {
 	}
 	for _, step := range steps {
 		cfg := step.cfg
-		cfg.Measurer = m
+		cfg.FontMeasurer = m
 		if err := e.Configure(cfg); err != nil {
 			t.Fatal(step.name, err)
 		}

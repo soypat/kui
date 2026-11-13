@@ -3,7 +3,7 @@
 //   - [Input] translates the events of a Cogent [system.Window] to kui events.
 //   - [Painter] paints kui draw lists with Cogent's [paint.Painter]; [Present] shows the
 //     result on a window.
-//   - [Measurer] measures text with Cogent's shaper, the way [Painter] draws it, for kui
+//   - [FontMeasurer] measures text with Cogent's shaper, the way [Painter] draws it, for kui
 //     layout engines.
 //
 // It is a minimal translation. Cogent queues events itself, merging moves and scrolls, so

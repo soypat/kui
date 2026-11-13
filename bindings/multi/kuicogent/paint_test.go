@@ -125,9 +125,9 @@ func TestPaintImage(t *testing.T) {
 
 func diff(a, b uint8) int { return max(int(a)-int(b), int(b)-int(a)) }
 
-// TestPaintText checks text is painted within the width the Measurer gives it.
+// TestPaintText checks text is painted within the width the FontMeasurer gives it.
 func TestPaintText(t *testing.T) {
-	m := NewMeasurer()
+	m := NewFontMeasurer()
 	st := kui.TextStyle{Size: 16}
 	const s = "Hello kui"
 	mw, mh := m.Measure(s, &st)
@@ -156,7 +156,7 @@ func TestPaintText(t *testing.T) {
 }
 
 func TestMeasure(t *testing.T) {
-	m := NewMeasurer()
+	m := NewFontMeasurer()
 	st := kui.TextStyle{Size: 13}
 	w1, h1 := m.Measure("Hello", &st)
 	w2, h2 := m.Measure("Hello, world", &st)

@@ -56,7 +56,7 @@ type fixture struct {
 
 func newFixture(t testing.TB) *fixture {
 	f := &fixture{k: new(Scene), eng: new(kui2go.LayoutBasic)}
-	err := f.eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, Measurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
+	err := f.eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, FontMeasurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -80,7 +80,7 @@ func main() {
 
 	// The UI.
 	var eng kui2go.LayoutBasic
-	check(eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 128, Measurer: faces}))
+	check(eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 128, FontMeasurer: faces}))
 	ww, wh := win.GetSize()
 	var k kuiscene.Scene
 	check(k.Configure(kuiscene.Config{
@@ -91,7 +91,7 @@ func main() {
 		RootVisual: kuiscene.Visual{Background: theme.Background},
 	}))
 	var w kuiscene.WidgetBuilder
-	check(w.Configure(&k, kuiscene.WidgetConfig{Theme: theme, Measurer: faces}))
+	check(w.Configure(&k, kuiscene.WidgetConfig{Theme: theme, FontMeasurer: faces}))
 	root := k.Root()
 	w.Label(root, "kui widgets, GLFW window and events, WebGPU painting.")
 	counter := w.Label(root, "clicks: 0")

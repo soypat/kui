@@ -133,7 +133,7 @@ func (scene *Scene) EventText(dst []byte, e *NodeEvent) int {
 	case e.Len == 0 || scene.textSrc == nil:
 		return 0
 	}
-	return scene.textSrc.EventTextWrite(dst, e.KuiEvent())
+	return scene.textSrc.DrainTextEvent(dst, e.KuiEvent())
 }
 
 // hitIndex holds the hit testable boxes of a layout in paint order, as parallel arrays.

@@ -8,7 +8,7 @@ import (
 
 func newLayoutBasic(t testing.TB, maxNodes int) *LayoutBasic {
 	var e LayoutBasic
-	if err := e.Configure(LayoutBasicConfig{MaxNodes: maxNodes, Measurer: TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
+	if err := e.Configure(LayoutBasicConfig{MaxNodes: maxNodes, FontMeasurer: TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
 		t.Fatal(err)
 	}
 	return &e

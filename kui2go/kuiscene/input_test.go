@@ -259,7 +259,7 @@ func TestPaintAfterAndHiddenFocus(t *testing.T) {
 // moves the source text.
 func TestSetTextAliasing(t *testing.T) {
 	var eng kui2go.LayoutBasic
-	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 8, Measurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
+	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 8, FontMeasurer: kui2go.TextMono{CharWidth: 8, LineHeight: 16}}); err != nil {
 		t.Fatal(err)
 	}
 	var k Scene

@@ -13,8 +13,8 @@ var _ kui.LayoutEngine = (*LayoutBasic)(nil)
 type LayoutBasicConfig struct {
 	// MaxNodes is the maximum node index plus one of the trees laid out.
 	MaxNodes int
-	// Measurer measures text. Required to lay out text.
-	Measurer kui.Measurer
+	// FontMeasurer measures text. Required to lay out text.
+	FontMeasurer kui.FontMeasurer
 }
 
 // LayoutBasic is a [kui.LayoutEngine] running clay's layout algorithm directly over a
@@ -24,7 +24,7 @@ type LayoutBasicConfig struct {
 //
 // Configure it before use. It does not allocate afterwards.
 type LayoutBasic struct {
-	measurer kui.Measurer
+	measurer kui.FontMeasurer
 	nodes    []basicNode
 	kids     []int32 // Children of the node being sized: node indices, and ^n for node n's text.
 	resize   []int32 // Children of the node being sized that may be resized.
@@ -53,7 +53,7 @@ func (e *LayoutBasic) Configure(cfg LayoutBasicConfig) error {
 	if cfg.MaxNodes <= 0 {
 		return kui.ErrInvalidConfig
 	}
-	e.measurer = cfg.Measurer
+	e.measurer = cfg.FontMeasurer
 	e.nodes = resizeSlice(e.nodes, cfg.MaxNodes)[:cfg.MaxNodes]
 	e.kids = resizeSlice(e.kids, cfg.MaxNodes+1)
 	e.resize = resizeSlice(e.resize, cfg.MaxNodes+1)

@@ -168,7 +168,7 @@ func rect(pc *paint.Painter, x, y, w, h float32, r sides.Floats) {
 	}
 }
 
-// shaper shapes single lines of text, for both [Painter] and [Measurer] so they agree.
+// shaper shapes single lines of text, for both [Painter] and [FontMeasurer] so they agree.
 type shaper struct {
 	sh shaped.Shaper
 	uc units.Context

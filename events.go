@@ -13,9 +13,9 @@ type EventReader interface {
 	// Drained times never decrease so it is the EventReader's responsability to order events written by [Event.Time].
 	// The text of drained events stays valid until the next Drain.
 	DrainEvents(dst []Event) int
-	// EventTextWrite writes the text of e, a text event returned by the last Drain, to dst and returns its length.
+	// DrainTextEvent writes the text of e, a text event returned by the last Drain, to dst and returns its length.
 	// Text that does not fit dst is dropped at a rune boundary, so dst[:n] holds whole runes.
-	EventTextWrite(dst []byte, e *Event) int
+	DrainTextEvent(dst []byte, e *Event) int
 }
 
 // EventWriter is the producer end of an event queue. A Writer has a single producer.
@@ -259,7 +259,7 @@ const (
 	KeyModNumLock  = KeyMods(kmNumLock)
 )
 
-type keymod uint8 // facilitates autogen of bitset enum stringifying. See [KeyMods.AppendString]
+type keymod uint8 // facilitates autogen of bitset enum stringifying. See [KeyMods.StringAppend]
 
 const (
 	kmShift    keymod = 1 << iota // shift
@@ -272,8 +272,8 @@ const (
 	kmMax = iota
 )
 
-// AppendString appends all keyboard modifier string representations, each separated by space.
-func (km KeyMods) AppendString(dst []byte) []byte {
+// StringAppend appends all keyboard modifier string representations, each separated by space.
+func (km KeyMods) StringAppend(dst []byte) []byte {
 	i := 0
 	appended := false
 	for km != 0 && i < kmMax {

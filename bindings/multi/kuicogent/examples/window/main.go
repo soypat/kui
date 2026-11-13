@@ -47,9 +47,9 @@ func run(win system.Window) {
 	var in kuicogent.Input
 	check(in.Configure(kuicogent.InputConfig{Events: &queue, Window: win, Nanotime: nanotime}))
 
-	measurer := kuicogent.NewMeasurer()
+	measurer := kuicogent.NewFontMeasurer()
 	var eng kui2go.LayoutBasic
-	check(eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 128, Measurer: measurer}))
+	check(eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 128, FontMeasurer: measurer}))
 	theme := kuiscene.DefaultTheme()
 	dots := win.Size()
 	var k kuiscene.Scene
@@ -61,7 +61,7 @@ func run(win system.Window) {
 		RootVisual: kuiscene.Visual{Background: theme.Background},
 	}))
 	var w kuiscene.WidgetBuilder
-	check(w.Configure(&k, kuiscene.WidgetConfig{Theme: theme, Measurer: measurer}))
+	check(w.Configure(&k, kuiscene.WidgetConfig{Theme: theme, FontMeasurer: measurer}))
 	root := k.Root()
 	w.Label(root, "kui widgets, Cogent Core window, events and painting.")
 	counter := w.Label(root, "clicks: 0")

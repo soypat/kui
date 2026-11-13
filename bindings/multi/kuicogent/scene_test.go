@@ -14,13 +14,13 @@ import (
 	"github.com/soypat/kui/kui2go/kuiscene"
 )
 
-// TestScene lays out widgets with the Measurer and paints them with the Painter at scale 2,
+// TestScene lays out widgets with the FontMeasurer and paints them with the Painter at scale 2,
 // checking text stays in the boxes layout gave it. Set KUI_SCENE_DIR to write scene.png there.
 func TestScene(t *testing.T) {
 	const w, h, scale = 260, 220, 2
-	m := NewMeasurer()
+	m := NewFontMeasurer()
 	var eng kui2go.LayoutBasic
-	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, Measurer: m}); err != nil {
+	if err := eng.Configure(kui2go.LayoutBasicConfig{MaxNodes: 64, FontMeasurer: m}); err != nil {
 		t.Fatal(err)
 	}
 	theme := kuiscene.DefaultTheme()
@@ -37,7 +37,7 @@ func TestScene(t *testing.T) {
 		t.Fatal(err)
 	}
 	var wb kuiscene.WidgetBuilder
-	if err := wb.Configure(&k, kuiscene.WidgetConfig{Theme: theme, Measurer: m}); err != nil {
+	if err := wb.Configure(&k, kuiscene.WidgetConfig{Theme: theme, FontMeasurer: m}); err != nil {
 		t.Fatal(err)
 	}
 	root := k.Root()
@@ -79,7 +79,7 @@ func TestScene(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// Text measured by the Measurer fits the width layout gave it.
+	// Text measured by the FontMeasurer fits the width layout gave it.
 	texts := 0
 	for _, c := range l.Cmds() {
 		if c.Op != kui.DrawText {
