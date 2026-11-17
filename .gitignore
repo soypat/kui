@@ -1,0 +1,3 @@
+# Local workspaces over sibling checkouts
+go.work
+go.work.sum
