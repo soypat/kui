@@ -28,6 +28,8 @@ github.com/soypat/glay v0.0.0-20261117220818-763def6175f7 h1:pPUQOdnjQpwlxQkJm4m
 github.com/soypat/glay v0.0.0-20261117220818-763def6175f7/go.mod h1:p8NVT4f19qaXSb8WumGooDIg3wLa8wuwWlnbjuvve6o=
 github.com/soypat/kui v0.0.0-20261104154338-2b7a0973787a h1:FA1UCszHg12Tw/ULZhenZ19QAUexePv2aEQBN/FuIKs=
 github.com/soypat/kui v0.0.0-20261104154338-2b7a0973787a/go.mod h1:2R3DkqUJw3wrc6bsDHZ8heWfhUgD/B6PB1ipruRuzvI=
+github.com/soypat/kui v0.0.0-20261117221045-a278f745286e h1:JQzzi1Tcmd9+TWkrEuHwLiBjMuzGDWGHdhLHaP99Zfk=
+github.com/soypat/kui v0.0.0-20261117221045-a278f745286e/go.mod h1:2R3DkqUJw3wrc6bsDHZ8heWfhUgD/B6PB1ipruRuzvI=
 github.com/soypat/lefevre v0.0.0-20261117214531-5ca77f95951a h1:9sPStM1RT5xIizvINnKRbmKAJnqJ8WY+Yz1wmOfNzQk=
 github.com/soypat/lefevre v0.0.0-20261117214531-5ca77f95951a/go.mod h1:isEsoKIedVFjONjTPEzACot3Wj7eHvvI1y7j56X3ffU=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

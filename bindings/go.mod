@@ -6,7 +6,7 @@ require (
 	github.com/go-gl/gl v0.0.0-20231021071112-07e5d0ea2e71
 	github.com/go-gl/glfw/v3.4/glfw v0.1.0-pre.1.0.20260628091122-0bd588dc30cf
 	github.com/soypat/glay v0.0.0-20261117220818-763def6175f7
-	github.com/soypat/kui v0.0.0-20261104154338-2b7a0973787a
+	github.com/soypat/kui v0.0.0-20261117221045-a278f745286e
 	golang.org/x/image v0.18.0
 )
 
@@ -20,4 +20,3 @@ require (
 )
 
 require github.com/soypat/lefevre v0.0.0-20261117214531-5ca77f95951a
-
